@@ -1,9 +1,14 @@
 #ifndef TUIGRAPHICMANAGER_HPP
 #define TUIGRAPHICMANAGER_HPP
 
+#pragma once
 #include <sys/ioctl.h>  // terminal size
 #include <signal.h>     // signals (later)
 #include <iostream>
+#include <string_view>
+#include <format>
+
+#include "TUIStruct.hpp"
 
 namespace tui {
 
@@ -24,41 +29,13 @@ Color Mod 16 FG             "ESC[9Xm"           put the color to the background 
 
 
 */
-enum TUI16Color {
-    black = 0,
-    red = 1,
-    green = 2,
-    yellow = 3,
-    blue = 4,
-    magenta = 5,
-    cyan = 6,
-    white = 7,
-};
-
-namespace ActionTable {
-    //Moving
-    constexpr char* string_CursorHome{"\x1b[H"};
-    constexpr char* string_MoveCursor{"\x1b[%d;%dH"};
-    //Clearing
-    constexpr char* string_Clear{"\x1b[2J"};
-    constexpr char* string_ClearCusorToRight{"\x1b[0K"};
-    constexpr char* string_ClearCusorToLeft{"\x1b[1K"};
-    constexpr char* string_ClearCusorLine{"\x1b[2K"};
-    //Cusor things
-    constexpr char* string_HideCursor{"\x1b[?25l"};
-    constexpr char* string_ShowCursor{"\x1b[?25h"};
-    //Coloring
-    constexpr char* string_ResetColors{"\x1b[0m"};
-    constexpr char* string_16ColorFGMode{"ESC[3%dm"};
-    constexpr char* string_16ColorBGMode{"ESC[9%dm"};
-};
 
 class TUIGraphicManager {
 private:
     int TUIheight_{};
     int TUIWidth_{};
 
-    void TUIAction(const char* string_action);
+    void TUIAction(const std::string_view& string_action);
 
 public:
     int getHeigth() { return TUIheight_; }

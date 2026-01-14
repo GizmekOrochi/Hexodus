@@ -9,10 +9,8 @@ TUIGraphicManager::TUIGraphicManager() : TUIheight_(), TUIWidth_() {
     TUIWidth_ = ws.ws_col;
 }
 
-void TUIGraphicManager::TUIAction(const char* string_action) {
-    char buf[32];
-    int len = snprintf(buf, sizeof(buf), string_action);
-    write(STDOUT_FILENO, buf, len);
+void TUIGraphicManager::TUIAction(const std::string_view& string_action) {
+    write(STDOUT_FILENO, string_action.data(), string_action.size());
 };
 
 
@@ -35,9 +33,8 @@ void TUIGraphicManager::TUIResetColors() { TUIAction(ActionTable::string_ResetCo
 void TUIGraphicManager::TUIDisplayChar(const char chr) { std::cout << chr; }
 
 void TUIGraphicManager::TUImoveCursor(int height, int width) {
-    char buf[32];
-    int len = snprintf(buf, sizeof(buf), ActionTable::string_MoveCursor, height, width);
-    write(STDOUT_FILENO, buf, len);
+    std::string moveCursorOrder{std::format(ActionTable::string_MoveCursor, height, width)};
+    write(STDOUT_FILENO, moveCursorOrder.data(), moveCursorOrder.size());
 }
 
 }// namespace
