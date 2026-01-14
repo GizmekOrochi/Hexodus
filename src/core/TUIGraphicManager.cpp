@@ -1,8 +1,8 @@
 #include "../include/TUIGraphicManager.hpp"
 
-namespace tui {
+namespace TUI {
 
-TUIGraphicManager::TUIGraphicManager() : TUIheight_(), TUIWidth_() {
+TUIGraphicManager::TUIGraphicManager() : TUIheight_(), TUIWidth_(), colorator_() {
     winsize ws{};
     if(ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1) throw std::logic_error("Error couldn't init TUIGraphicManager");
     TUIheight_ = ws.ws_row;
@@ -29,6 +29,11 @@ void TUIGraphicManager::TUIHideCursor() { TUIAction(ActionTable::string_HideCurs
 void TUIGraphicManager::TUIShowCursor() { TUIAction(ActionTable::string_ShowCursor); }
 
 void TUIGraphicManager::TUIResetColors() { TUIAction(ActionTable::string_ResetColors); }
+
+void TUIGraphicManager::TUISetColor(RGBPanel colorFront, RGBPanel colorBack) {
+        colorator_.SetRGBColor(colorFront, colorBack);
+        colorator_.ApplyColor();
+};
 
 void TUIGraphicManager::TUIDisplayChar(const char chr) { std::cout << chr; }
 
