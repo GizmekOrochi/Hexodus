@@ -1,8 +1,13 @@
 #ifndef TUIRENDERER_HPP
 #define TUIRENDERER_HPP
 
+#pragma once
 #include <cstdint>
 #include <vector>
+#include <iostream>
+#include "TUIGraphicManager.hpp"
+
+namespace TUI {
 
 struct Pixel {
     uint8_t r, g, b, a;
@@ -16,28 +21,37 @@ struct Verticals {
 class TUIRenderer {
 private:
     std::vector<Pixel> framebuffer;
-    int height_;
-    int width_;
+    TUIGraphicManager graphicManager;
+
 public:
-    TUIRenderer() : height_(), width_() {};
+    TUIRenderer() : graphicManager() {};
 
     void setBackgroundRed() {
-        for(size_t y{}; y < width_; y++){
+        graphicManager.update();
+        for(size_t y{}; y < graphicManager.getHeigth(); y++){
             std::vector<std::vector<Pixel>> newTab;
-            for(size_t x{}; x < height_; x++){
+            for(size_t x{}; x < graphicManager.getWidth(); x++){
                 framebuffer.push_back(Pixel{255, 0, 0, 255});
             }
         }
     };
-
-    void setBufferSize(int h, int w) {
-        height_ = h;
-        width_ = w;
-    }
     
     void drawBuffer() {
-
+        graphicManager.TUIClear();
+        graphicManager.update();
+        graphicManager.TUICursorHome();
+        //std::cout << "x : " << graphicManager.getHeigth() << ", y : " << graphicManager.getWidth();
+        for(size_t y{}; y < graphicManager.getHeigth(); y++){
+            graphicManager.TUICursorHome();
+            graphicManager.TUImoveCursor(1 , y + 1);
+            for(size_t x{}; x < graphicManager.getWidth(); x++){
+                if(x == 0) graphicManager.TUIDisplayChar('D');
+                graphicManager.TUIDisplayChar('H');
+            }
+        }
     }
 };
+
+} //namespace
 
 #endif // TUIRENDERER_HPP

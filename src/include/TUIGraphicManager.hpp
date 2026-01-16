@@ -31,34 +31,39 @@ Color Mod 16 FG             "ESC[9Xm"           put the color to the background 
 
 class TUIGraphicManager {
 private:
-    int TUIheight_{};
-    int TUIWidth_{};
+    size_t TUIheight_{};
+    size_t TUIWidth_{};
     Colorator colorator_{};
 
     void TUIAction(const std::string_view& string_action);
 
 public:
-    int getHeigth() { return TUIheight_; }
-    int getWidth() { return TUIWidth_; }
-    
-    //Cursor moving
+    size_t getHeigth() { return TUIheight_; }
+    size_t getWidth() { return TUIWidth_; }
+
     TUIGraphicManager();
+    void update();
 
     void TUICursorHome();
+    void TUImoveCursor(size_t height, size_t width);
+    
     //Clearing
     void TUIClear();
     void TUIClearCusorToRight();
     void TUIClearCusorToLeft();
     void TUIClearCursorLine();
+  
     //cursor thingd
     void TUIHideCursor();
     void TUIShowCursor();
+   
     //Coloring
     void TUIResetColors();
     void TUISetColor(RGBPanel colorFront, RGBPanel colorBack);
-
+    
+    //Cursor moving
     void TUIDisplayChar(const char chr);
-    void TUImoveCursor(int height, int width);
+    
 
 
 };

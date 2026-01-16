@@ -13,6 +13,12 @@ void TUIGraphicManager::TUIAction(const std::string_view& string_action) {
     write(STDOUT_FILENO, string_action.data(), string_action.size());
 };
 
+void TUIGraphicManager::update() {
+    winsize ws{};
+    if(ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1) throw std::logic_error("Error couldn't init TUIGraphicManager");
+    TUIheight_ = ws.ws_row;
+    TUIWidth_ = ws.ws_col;
+}
 
 void TUIGraphicManager::TUICursorHome() { TUIAction(ActionTable::string_CursorHome); }
 
@@ -37,7 +43,7 @@ void TUIGraphicManager::TUISetColor(RGBPanel colorFront, RGBPanel colorBack) {
 
 void TUIGraphicManager::TUIDisplayChar(const char chr) { std::cout << chr; }
 
-void TUIGraphicManager::TUImoveCursor(int height, int width) {
+void TUIGraphicManager::TUImoveCursor(size_t height, size_t width) {
     std::string moveCursorOrder{std::format(ActionTable::string_MoveCursor, height, width)};
     write(STDOUT_FILENO, moveCursorOrder.data(), moveCursorOrder.size());
 }
