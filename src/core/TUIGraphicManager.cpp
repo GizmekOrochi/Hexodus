@@ -55,4 +55,20 @@ void TUIGraphicManager::TUImoveCursor(int height, int width) {
     write(STDOUT_FILENO, moveCursorOrder.data(), moveCursorOrder.size());
 }
 
+void TUIGraphicManager::enableRawMode() {
+    tcgetattr(STDIN_FILENO, &original_termios);
+
+    termios raw = original_termios;
+    raw.c_lflag &= ~(ECHO | ICANON | ISIG);
+    raw.c_iflag &= ~(IXON | ICRNL);
+    raw.c_oflag &= ~(OPOST);
+
+    tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+}
+
+void TUIGraphicManager::disableRawMode() {
+    tcsetattr(STDIN_FILENO, TCSAFLUSH, &original_termios);
+}
+
+
 }// namespace

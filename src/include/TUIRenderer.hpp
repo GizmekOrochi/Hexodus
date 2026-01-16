@@ -38,10 +38,11 @@ public:
     
     void drawBuffer() {
         graphicManager.TUIEnterAltScreen();
+        graphicManager.disableRawMode();
         graphicManager.TUIHideCursor();
         graphicManager.TUIClear();
         graphicManager.TUICursorHome();
-        graphicManager.TUISetColor(TUI::RGBPanel{0, 0, 255}, TUI::RGBPanel{0, 241, 24});
+        graphicManager.TUISetColor(TUI::RGBPanel{0, 0, 160}, TUI::RGBPanel{0, 241, 24});
 
         int h = graphicManager.getHeigth();
         int w = graphicManager.getWidth();
@@ -57,6 +58,7 @@ public:
 
     void restore() {
         graphicManager.TUIResetColors();
+        graphicManager.enableRawMode();
         graphicManager.TUIShowCursor();
         graphicManager.TUILeaveAltScreen();
     }

@@ -7,6 +7,9 @@
 #include <iostream>
 #include <string_view>
 #include <format>
+#include <termios.h>
+#include <unistd.h>
+
 
 #include "TUI-Coloring/Colorator.hpp"
 #include "TUIStruct.hpp"
@@ -34,6 +37,7 @@ private:
     int TUIheight_{};
     int TUIWidth_{};
     Colorator colorator_{};
+    termios original_termios;
 
     void TUIAction(const std::string_view& string_action);
 
@@ -66,6 +70,10 @@ public:
     
     //Cursor moving
     void TUIDisplayChar(const std::string_view& glyph);
+
+    void enableRawMode();
+    void disableRawMode();
+
 
 };
 
