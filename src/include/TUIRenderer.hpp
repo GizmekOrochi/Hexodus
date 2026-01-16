@@ -28,27 +28,37 @@ public:
 
     void setBackgroundRed() {
         graphicManager.update();
-        for(size_t y{}; y < graphicManager.getHeigth(); y++){
+        for(int y{}; y < graphicManager.getHeigth(); y++){
             std::vector<std::vector<Pixel>> newTab;
-            for(size_t x{}; x < graphicManager.getWidth(); x++){
+            for(int x{}; x < graphicManager.getWidth(); x++){
                 framebuffer.push_back(Pixel{255, 0, 0, 255});
             }
         }
     };
     
     void drawBuffer() {
+        graphicManager.TUIEnterAltScreen();
+        graphicManager.TUIHideCursor();
         graphicManager.TUIClear();
-        graphicManager.update();
         graphicManager.TUICursorHome();
-        //std::cout << "x : " << graphicManager.getHeigth() << ", y : " << graphicManager.getWidth();
-        for(size_t y{}; y < graphicManager.getHeigth(); y++){
-            graphicManager.TUICursorHome();
-            graphicManager.TUImoveCursor(1 , y + 1);
-            for(size_t x{}; x < graphicManager.getWidth(); x++){
-                if(x == 0) graphicManager.TUIDisplayChar('D');
-                graphicManager.TUIDisplayChar('H');
+        graphicManager.TUISetColor(TUI::RGBPanel{0, 0, 255}, TUI::RGBPanel{0, 241, 24});
+
+        int h = graphicManager.getHeigth();
+        int w = graphicManager.getWidth();
+        
+        for (int y = 0; y < h; y++) {
+            graphicManager.TUImoveCursor(y + 1, 1);
+            for (int x = 0; x < w - 1; x++) {
+                graphicManager.TUIDisplayChar("█");
             }
         }
+    }
+
+
+    void restore() {
+        graphicManager.TUIResetColors();
+        graphicManager.TUIShowCursor();
+        graphicManager.TUILeaveAltScreen();
     }
 };
 

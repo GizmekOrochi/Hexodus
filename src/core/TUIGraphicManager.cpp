@@ -36,14 +36,21 @@ void TUIGraphicManager::TUIShowCursor() { TUIAction(ActionTable::string_ShowCurs
 
 void TUIGraphicManager::TUIResetColors() { TUIAction(ActionTable::string_ResetColors); }
 
+void TUIGraphicManager::TUIEnterAltScreen() { TUIAction(ActionTable::string_EnterAltScreen); }
+
+void TUIGraphicManager::TUILeaveAltScreen() { TUIAction(ActionTable::string_LeaveAltScreen); }
+
 void TUIGraphicManager::TUISetColor(RGBPanel colorFront, RGBPanel colorBack) {
         colorator_.SetRGBColor(colorFront, colorBack);
         colorator_.ApplyColor();
 };
 
-void TUIGraphicManager::TUIDisplayChar(const char chr) { std::cout << chr; }
+void TUIGraphicManager::TUIDisplayChar(const std::string_view& glyph) {
+    write(STDOUT_FILENO, glyph.data(), glyph.size());
+}
 
-void TUIGraphicManager::TUImoveCursor(size_t height, size_t width) {
+
+void TUIGraphicManager::TUImoveCursor(int height, int width) {
     std::string moveCursorOrder{std::format(ActionTable::string_MoveCursor, height, width)};
     write(STDOUT_FILENO, moveCursorOrder.data(), moveCursorOrder.size());
 }

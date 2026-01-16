@@ -23,5 +23,10 @@ int main() {
     TUI::TUIRenderer renderer{};
     renderer.setBackgroundRed();
     renderer.drawBuffer();
+    while (true)
+    {
+        /* code */
+    }
+
     return 0;
 }

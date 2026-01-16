@@ -69,24 +69,32 @@ inline TUI16Color transfor16ColorMod(const RGBPanel& RGBColor) {
 
 // Strings using to ORDER the terminal to OBEY as WE want
 namespace ActionTable {
-    //Moving
+    // Moving
     constexpr std::string_view string_CursorHome{"\x1b[H"};
     constexpr std::string_view string_MoveCursor{"\x1b[{};{}H"};
-    //Clearing
+
+    // Clearing
     constexpr std::string_view string_Clear{"\x1b[2J"};
     constexpr std::string_view string_ClearCusorToRight{"\x1b[0K"};
     constexpr std::string_view string_ClearCusorToLeft{"\x1b[1K"};
     constexpr std::string_view string_ClearCusorLine{"\x1b[2K"};
-    //Cusor things
+
+    // Cursor
     constexpr std::string_view string_HideCursor{"\x1b[?25l"};
     constexpr std::string_view string_ShowCursor{"\x1b[?25h"};
-    //Coloring
+
+    // Screen buffer
+    constexpr std::string_view string_EnterAltScreen{"\x1b[?1049h"};
+    constexpr std::string_view string_LeaveAltScreen{"\x1b[?1049l"};
+
+    // Coloring
     constexpr std::string_view string_ResetColors{"\x1b[0m"};
     constexpr std::string_view string_16ColorFGMod{"\x1b[3{}m"};
     constexpr std::string_view string_16ColorBGMod{"\x1b[4{}m"};
-    constexpr std::string_view string_trueColorFGMod("\x1b[38;2;{};{};{}m");
-    constexpr std::string_view string_trueColorBGMod("\x1b[48;2;{};{};{}m");
-};  
+    constexpr std::string_view string_trueColorFGMod{"\x1b[38;2;{};{};{}m"};
+    constexpr std::string_view string_trueColorBGMod{"\x1b[48;2;{};{};{}m"};
+}
+
 
 } //namespace
 
