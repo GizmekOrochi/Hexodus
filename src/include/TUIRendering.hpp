@@ -1,30 +1,36 @@
+#ifndef TUIRENDERING_HPP
+#define TUIRENDERING_HPP
 
+#pragma once
+#include <string_view>
 
 namespace TUI {
 
 struct QuadBlock {
-    static constexpr char empty = ' ';   // 0000
+    static constexpr std::string_view empty = " ";
 
-    static constexpr char tl = '▘';   // 0001
-    static constexpr char tr = '▝';   // 0010
-    static constexpr char bl = '▖';   // 0100
-    static constexpr char br = '▗';   // 1000
+    static constexpr std::string_view tl = "▘";
+    static constexpr std::string_view tr = "▝";
+    static constexpr std::string_view bl = "▖";
+    static constexpr std::string_view br = "▗";
 
-    static constexpr char tl_tr = '▀';   // 0011 (top half)
-    static constexpr char bl_br = '▄';   // 1100 (bottom half)
+    static constexpr std::string_view tl_tr = "▀";
+    static constexpr std::string_view bl_br = "▄";
 
-    static constexpr char tl_bl = '▌';   // 0101 (left half)
-    static constexpr char tr_br = '▐';   // 1010 (right half)
+    static constexpr std::string_view tl_bl = "▌";
+    static constexpr std::string_view tr_br = "▐";
 
-    static constexpr char tl_br = '▚';   // 1001
-    static constexpr char tr_bl = '▞';   // 0110
+    static constexpr std::string_view tl_br = "▚";
+    static constexpr std::string_view tr_bl = "▞";
 
-    static constexpr char tl_tr_bl = '▛';   // 0111
-    static constexpr char tl_tr_br = '▜';   // 1011
-    static constexpr char tl_bl_br = '▙';   // 1101
-    static constexpr char tr_bl_br = '▟';   // 1110
+    static constexpr std::string_view tl_tr_bl = "▛";
+    static constexpr std::string_view tl_tr_br = "▜";
+    static constexpr std::string_view tl_bl_br = "▙";
+    static constexpr std::string_view tr_bl_br = "▟";
 
-    static constexpr char full = '█';   // 1111
+    static constexpr std::string_view full = "█";
 };
 
-}
+} // namespace
+
+#endif // TUIRENDERING_HPP
