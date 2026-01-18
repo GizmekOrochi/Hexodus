@@ -1,20 +1,20 @@
-#ifndef TUIRASTERIZER_HPP
-#define TUIRASTERIZER_HPP
+#ifndef RASTERIZER_HPP
+#define RASTERIZER_HPP
 
 #include <string>
 #include <vector>
 
-namespace TUI {
+namespace Geometry {
 
-class TUIRasterizer {
+class Rasterizer {
 private:
     float worldX_Limit_;
     float worldY_Limit_;
 public:
-    TUIRasterizer(float worldX_Limit, float worldY_Limit) : worldX_Limit_(worldX_Limit), worldY_Limit_(worldY_Limit) {};
-    ~TUIRasterizer();
+    Rasterizer(float worldX_Limit, float worldY_Limit) : worldX_Limit_(worldX_Limit), worldY_Limit_(worldY_Limit) {};
+    ~Rasterizer();
 };
 
 }
 
-#endif // TUIRASTERIZER_HPP
+#endif // RASTERIZER_HPP
