@@ -14,6 +14,10 @@ private:
     Vector C_;
 public:
     Triangle(Vector A, Vector B, Vector C);
+
+    Vector getA();
+    Vector getB();
+    Vector getC();
 };
 
 }

@@ -2,8 +2,9 @@
 #define VECTOR_HPP
 
 #pragma once
-
 #include <cmath>
+#include <stdexcept>
+#include "Matrix.hpp"
 
 namespace Geometry {
 
@@ -12,28 +13,45 @@ private:
     float x_{};
     float y_{};
     float z_{};
-    float w_{};   // weight for mass point algebra
+    float w_{};
 public:
     Vector(float x, float y, float z, bool isVector);
     Vector(float x, float y, float z, float w);
+    Vector(const Vector& copy);
     Vector();
-    ~Vector();
 
     float getX() const;
     float getY() const;
     float getZ() const;
     float getW() const;
 
-    void operator=(Vector& other);
+    Vector& operator=(const Vector& other);
 
-    void operator+=(Vector& other);
-    void operator-=(Vector& other);
+    Vector& operator+=(const Vector& other);
+    Vector& operator-=(const Vector& other);
+    Vector& operator*=(float scalar);
+    Vector& operator/=(float scalar);
 
-    Vector operator+(Vector& other);
-    Vector operator-(Vector& other);
+    Vector operator+(const Vector& other) const;
+    Vector operator-(const Vector& other) const;
+    Vector operator*(float scalar) const;
+    Vector operator/(float scalar) const;
 
-    float Norm();
-    float Dot(Vector& other);
+    friend Vector operator*(const Matrix& matrix, const Vector& vector);
+    friend Vector operator*(const Vector& vector, const Matrix& matrix);
+
+    float Norm() const;
+    float Dot(const Vector& other) const;
+    Vector Cross(const Vector& other) const;
+
+    float lengthSq() const;
+    float length() const;
+
+    Vector getRealPosition() const;
+
+    Vector Rotate() const;
+    Vector Translate() const;
+    Vector Transform() const;
 };
 
 } //namespace

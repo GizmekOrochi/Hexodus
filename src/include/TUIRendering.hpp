@@ -2,9 +2,14 @@
 #define TUIRENDERING_HPP
 
 #pragma once
+#include <cstdint>
 #include <string_view>
 
 namespace TUI {
+
+struct Pixel {
+    uint8_t r, g, b, a;
+};
 
 struct QuadBlock {
     static constexpr std::string_view empty = " ";
