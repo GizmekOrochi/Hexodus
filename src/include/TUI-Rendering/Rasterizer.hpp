@@ -17,6 +17,7 @@ private:
 public:
     Rasterizer(float worldX_Limit, float worldY_Limit);
 
+    void applyPainterAlgorithm();
     std::vector<TUI::Pixel> convertObject(int outputHeight, int outputLenght);
 };
 
