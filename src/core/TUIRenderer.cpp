@@ -2,30 +2,37 @@
 
 namespace TUI {
 
+/*
 void TUIRenderer::setBackgroundRed() {
     graphicManager.update();
     for(int y{}; y < graphicManager.getHeigth(); y++){
         std::vector<std::vector<Pixel>> newTab;
         for(int x{}; x < graphicManager.getWidth(); x++){
-            framebuffer.push_back(Pixel{255, 0, 0, 255});
+            framebuffer.push_back(Pixel{0, 0, 255, 255});
         }
     }
 };
+*/
+
+void TUIRenderer::InitScene(Scene2D* scene) {
+    scene_ = scene;
+}
 
 void TUIRenderer::drawBuffer() {
+    // For now the scene will be all the screen
+    framebuffer = scene_->convertScene(graphicManager.getHeigth(), graphicManager.getWidth());
     graphicManager.TUIEnterAltScreen();
-    graphicManager.disableRawMode();
+    //graphicManager.disableRawMode();   Disable the charinput
     graphicManager.TUIHideCursor();
     graphicManager.TUIClear();
     graphicManager.TUICursorHome();
-    graphicManager.TUISetColor(TUI::RGBPanel{0, 0, 160}, TUI::RGBPanel{0, 241, 24});
 
     int h = graphicManager.getHeigth();
     int w = graphicManager.getWidth();
     
     for (int y = 0; y < h; y++) {
         graphicManager.TUImoveCursor(y + 1, 1);
-        for (int x = 0; x < w - 1; x++) {
+        for (int x = 0; x < w; x++) {
             float alphaChannel{framebuffer[10 * y + x].a / 255.f};
             float RedChannel{framebuffer[10 * y + x].r / alphaChannel};
             float GreenChannel{framebuffer[10 * y + x].g / alphaChannel};

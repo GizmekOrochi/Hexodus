@@ -1,4 +1,4 @@
-#include "../../../include/Geometry/object/Triangle.hpp"
+#include "../../../../include/TUI-Rendering/Geometry/object/Triangle.hpp"
 
 namespace Geometry {
 

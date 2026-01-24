@@ -2,26 +2,29 @@
 #include "include/TUIRenderer.hpp"
 #include <iostream>
 
-
-
 int main() {
-    /*TUI::TUIGraphicManager view{};
-    TUI::Colorator colorator{};
-    std::string helloworld{"Hello, world!"};
-    view.TUIHideCursor();
-    view.TUIClear();
-    view.TUICursorHome();
-    view.TUISetColor(TUI::RGBPanel{234, 0, 100}, TUI::RGBPanel{0, 241, 24});
-    for(int i{}; i < static_cast<int>(helloworld.size()); i++){
-        //view.TUImoveCursor(1 , view.getWidth() - 12);
-        view.TUICursorHome();
-        view.TUIDisplayChar(helloworld[i]);
-    }
-    //view.TUIResetColors();
-    view.TUIShowCursor();
-    */
+
     TUI::TUIRenderer renderer{};
-    renderer.setBackgroundRed();
+    std::cout << "AJHGABFGYARYTDRHFGGDATECDTAEVYATRAFGBUAVYRAFYRBABKNARIFA6TB6"; // not printed
+    Scene2D* scene = new Scene2D({0, 0}, {100, 100});
+    std::cout << "AJHGABFGYARYTDRHFGGDATECDTAEVYATRAFGBUAVYRAFYRBABKNARIFA6TB6"; // not printed
+    scene->setBackground(TUI::Pixel{255, 0, 0, 0});
+    /*
+    scene->add(std::make_unique<UISquare>( all black
+        std::array<int,2>{100,100},
+        std::array<int,2>{100,600},
+        1,
+        TUI::Pixel{255,0,0,255}
+    ));
+    */
+    scene->add(std::make_unique<UISquare>( // all red
+        std::array<int,2>{0,0},
+        std::array<int,2>{100,600},
+        1,
+        TUI::Pixel{255,0,0,255}
+    ));
+    //renderer.setBackgroundRed();
+    renderer.InitScene(scene);
     renderer.drawBuffer();
     while (true)
     {

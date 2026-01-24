@@ -3,7 +3,7 @@
 
 #include <algorithm>
 #include <cmath>
-#include "../Geometry/object/Vector.hpp"
+#include "Geometry/object/Vector.hpp"
 
 namespace Rendering {
 

@@ -1,15 +1,14 @@
-#include "../../include/TUI-Rendering/Rasterizer.hpp"
+#include "../../include/TUI-Rendering/Scene3D.hpp"
 
-namespace Geometry {
-
-Rasterizer::Rasterizer(float worldX_Limit, float worldY_Limit) : worldX_Limit_{worldX_Limit}, worldY_Limit_{worldY_Limit}, ObjectList{} {};
+Scene3D::Scene3D(std::array<uint8_t, 2> origin, std::array<uint8_t, 2> ending) 
+    : Scene{origin, ending}, ObjectList{} {}
 
 void applyPainterAlgorithm() {
     // sort the facesby their Z axis in this order lowes -> highest
     // remove the completly hiden faces
 }
 
-std::vector<TUI::Pixel> Rasterizer::convertObject(int outputHeight, int outputLenght) {
+std::vector<TUI::Pixel> Scene3D::convertScene(int outputHeight, int outputLenght) {
     std::vector<TUI::Pixel> res{};
     for(Triangle triangle : ObjectList) {
         Vector AB = triangle.getB() - triangle.getA();
@@ -22,5 +21,3 @@ std::vector<TUI::Pixel> Rasterizer::convertObject(int outputHeight, int outputLe
     }
     return res;
 }
-
-}//namespace
