@@ -27,7 +27,7 @@ public:
 
     //void setActiveScene(Scene& Scene); LATER
 
-    //void setBackgroundRed(); TEST FUNCTION of drawBuffer
+    void setBackgroundRed();
 
     //origin is the origin point ( in 100% of the screen) same for ending
     void InitScene(Scene2D* scene);
