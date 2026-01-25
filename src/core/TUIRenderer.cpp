@@ -2,39 +2,79 @@
 
 namespace TUI {
 
-void TUIRenderer::setBackgroundRed() {
+void TUIRenderer::RenderScenes() {
     graphicManager.update();
+    framebuffer.clear();
+    framebuffer.reserve(graphicManager.getWidth() * graphicManager.getHeigth());
     for(int y{}; y < graphicManager.getHeigth(); y++){
-        std::vector<std::vector<Pixel>> newTab;
         for(int x{}; x < graphicManager.getWidth(); x++){
-            if(x < graphicManager.getWidth() / 2) framebuffer.push_back(Pixel{0, 0, 255, 255});
-            else framebuffer.push_back(Pixel{0, 255, 0, 255});
+            framebuffer.push_back(Pixel{0, 0, 0, 255});
+        }
+    }
+    size_t activeSceneIndex{};
+    for(size_t i{}; i < Scenes_.size(); i++) {
+        if(Scenes_[i] == activeScene_) {
+            activeSceneIndex = i;
+            continue;
+        }
+        RenderScene(i);
+    }
+    if(activeSceneIndex != 0) RenderScene(activeSceneIndex);
+};
+
+void TUIRenderer::RenderScene(size_t index) {
+    int h = graphicManager.getHeigth();
+    int w = graphicManager.getWidth();
+
+    int SceneOrigin_X = (Scenes_[index]->Origin()[0] * w) / 100;
+    int SceneOrigin_Y = (Scenes_[index]->Origin()[1] * h) / 100;
+    
+    int SceneEnding_X = (Scenes_[index]->Ending()[0] * w) / 100;
+    int SceneEnding_Y = (Scenes_[index]->Ending()[1] * h) / 100;
+
+    int maxXBuffer = SceneEnding_X - SceneOrigin_X;
+    int maxYBuffer = SceneEnding_Y - SceneOrigin_Y;
+
+    std::vector<Pixel> SceneBuffer{Scenes_[index]->convertScene(h, w)};
+
+    for (int y = 0; y < maxYBuffer; y++) {
+        for (int x = 0; x < maxXBuffer; x++) {
+            int screenX = SceneOrigin_X + x;
+            int screenY = SceneOrigin_Y + y;
+            if (screenX < 0 || screenX >= w) continue;
+            if (screenY < 0 || screenY >= h) continue;
+            Pixel src = SceneBuffer[y * maxXBuffer + x];
+            // if alphaChannel == 0 then not need to desplay
+            if (src.a == 0) continue;
+            framebuffer[screenY * w + screenX] = src;
         }
     }
 };
 
+
 void TUIRenderer::InitScene(Scene2D* scene) {
-    scene_ = scene;
+    Scenes_.push_back(scene);
+    activeScene_ = scene;
 }
+
 
 void TUIRenderer::drawBuffer() {
     // For now the scene will be all the screen
-    framebuffer = scene_->convertScene(graphicManager.getHeigth(), graphicManager.getWidth());
     graphicManager.TUIEnterAltScreen();
     //graphicManager.disableRawMode();   Disable the charinput
     graphicManager.TUIHideCursor();
     graphicManager.TUIClear();
     graphicManager.TUICursorHome();
 
+    RenderScenes();
+
     int h = graphicManager.getHeigth();
     int w = graphicManager.getWidth();
     
     for (int y = 0; y < h; y++) {
-            graphicManager.TUImoveCursor(y + scene_->Origin()[0] + 1, scene_->Origin()[1] + 1);
+            graphicManager.TUImoveCursor(y + 1, 1);
         for (int x = 0; x < w; x++) {
             float alphaChannel{framebuffer[y * w + x].a / 255.f};
-            // if alpha channel < 1 we put 1 to avoid problems
-            //alphaChannel = (alphaChannel < 1.f) ? 1.f : alphaChannel;
             float RedChannel{framebuffer[y * w + x].r / alphaChannel};
             float GreenChannel{framebuffer[y * w + x].g / alphaChannel};
             float BlueChannel{framebuffer[y * w + x].b / alphaChannel};
@@ -47,6 +87,8 @@ void TUIRenderer::drawBuffer() {
     }
 }
 
+
+void TUIRenderer::setActiveScene(Scene2D* Scene) { this->activeScene_ = Scene; };
 
 void TUIRenderer::restore() {
     graphicManager.TUIResetColors();

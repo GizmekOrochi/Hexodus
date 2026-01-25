@@ -29,10 +29,6 @@ std::vector<TUI::Pixel> Scene2D::convertScene(int outputHeight, int outputLength
     int maxXBuffer = SceneEnding_X - SceneOrigin_X;
     int maxYBuffer = SceneEnding_Y - SceneOrigin_Y;
 
-    /*
-    int maxXBuffer = outputLength;
-    int maxYBuffer = outputHeight;
-    */
     std::vector<TUI::Pixel> SceneBuffer{};
     
     for (int y = 0; y < maxYBuffer; y++) {

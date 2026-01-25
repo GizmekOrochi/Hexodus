@@ -3,6 +3,7 @@
 
 #pragma once
 #include <array>
+#include <vector>
 #include <cstdint>
 #include "../TUIRendering.hpp"
 
@@ -14,7 +15,7 @@ private:
     TUI::Pixel color_;
 public:
     Scene(std::array<uint8_t, 2> origin, std::array<uint8_t, 2> ending);
-    
+    virtual ~Scene() = default;
     void setBackground(TUI::Pixel color);
 
     TUI::Pixel Color();
@@ -23,6 +24,8 @@ public:
 
     void Origin(const std::array<uint8_t, 2>& origin);
     void Ending(const std::array<uint8_t, 2>& ending);
+
+    virtual std::vector<TUI::Pixel> convertScene(int outputHeight, int outputLength) = 0;
 };
 
 #endif // SCENE_HPP

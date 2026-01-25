@@ -18,16 +18,15 @@ private:
     std::vector<Pixel> framebuffer;
     TUIGraphicManager graphicManager;
     // lATER MULTIPLE RENDERING
-    //std::vector<std::unique_ptr<Scene>> Scenes_;
-    //Scene* activeScene_ = nullptr; // scene that the user can interact with
-    Scene2D* scene_;
+    std::vector<Scene2D*> Scenes_;
+    Scene2D* activeScene_ = nullptr; // scene that the user can interact with
 
+    void RenderScene(size_t index);
+    void RenderScenes();
 public:
-    TUIRenderer() : framebuffer{}, graphicManager{}, scene_{nullptr} {};
+    TUIRenderer() : framebuffer{}, graphicManager{}, Scenes_{} {};
 
-    //void setActiveScene(Scene& Scene); LATER
-
-    void setBackgroundRed();
+    void setActiveScene(Scene2D* Scene);
 
     //origin is the origin point ( in 100% of the screen) same for ending
     void InitScene(Scene2D* scene);
