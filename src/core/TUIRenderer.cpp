@@ -52,7 +52,7 @@ void TUIRenderer::RenderScene(size_t index) {
 };
 
 
-void TUIRenderer::InitScene(Scene2D* scene) {
+void TUIRenderer::InitScene(Scene* scene) {
     Scenes_.push_back(scene);
     activeScene_ = scene;
 }
@@ -88,7 +88,7 @@ void TUIRenderer::drawBuffer() {
 }
 
 
-void TUIRenderer::setActiveScene(Scene2D* Scene) { this->activeScene_ = Scene; };
+void TUIRenderer::setActiveScene(Scene* Scene) { this->activeScene_ = Scene; };
 
 void TUIRenderer::restore() {
     graphicManager.TUIResetColors();

@@ -31,10 +31,10 @@ int main() {
     ));
     renderer.InitScene(scene);
     renderer.InitScene(scene2);
-    renderer.drawBuffer();
+    
     while (true)
     {
-        /* code */
+        renderer.drawBuffer();
     }
 
     return 0;
