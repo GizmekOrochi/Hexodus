@@ -137,19 +137,41 @@ Vector Vector::getRealPosition() const {
     return Vector{x_ / w_, y_ / w_, z_ / w_, 1.0f};
 }
 
-Vector Vector::Rotate() const {
-    // Implementation depends on your rotation requirements
-    return *this;
+Vector Vector::Rotate(const Vector& vec) const {
+    Matrix rotX = Matrix::createRotationX(vec.getX());
+    Matrix rotY = Matrix::createRotationY(vec.getY());
+    Matrix rotZ = Matrix::createRotationZ(vec.getZ());
+
+    Geometry::Matrix rotationMatrix = rotZ * rotY * rotX;
+    return Transform(rotationMatrix);
 }
 
-Vector Vector::Translate() const {
-    // Implementation depends on your translation requirements
-    return *this;
+Vector Vector::Translate(const Vector& vec) const {
+    Matrix translationMatrix = Matrix::createTranslation(vec.getX(), vec.getY(), vec.getZ());
+
+    return Transform(translationMatrix);
 }
 
-Vector Vector::Transform() const {
-    // Implementation depends on your transformation requirements
-    return *this;
+Vector Vector::Transform(const Matrix& transformMat) const {
+    const std::array<float, 16>& m = transformMat.getValue();
+    
+    float newX = x_ * m[0] + y_ * m[4] + z_ * m[8] + w_ * m[12];
+    float newY = x_ * m[1] + y_ * m[5] + z_ * m[9] + w_ * m[13];
+    float newZ = x_ * m[2] + y_ * m[6] + z_ * m[10] + w_ * m[14];
+    float newW = x_ * m[3] + y_ * m[7] + z_ * m[11] + w_ * m[15];
+    if (newW != 1.0f && newW != 0.0f) {
+        newX /= newW;
+        newY /= newW;
+        newZ /= newW;
+        newW = 1.0f;
+    }
+    
+    return Vector(newX, newY, newZ, newW);
 }
 
+Vector Vector::Transform(const Vector& vec) const {
+    Matrix translation = Matrix::createTranslation(vec.getX(), vec.getY(), vec.getZ());
+
+    return Transform(translation);
+}
 } // namespace

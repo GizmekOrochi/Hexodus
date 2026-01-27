@@ -11,6 +11,8 @@ Matrix::Matrix() : value_({
 
 Matrix::Matrix(std::array<float, 16> value) : value_(value) {}
 
+std::array<float, 16> Matrix::getValue() const { return this->value_; };
+
 Matrix Matrix::Identity() {
     return Matrix();
 }

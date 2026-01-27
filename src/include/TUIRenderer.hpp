@@ -17,7 +17,7 @@ class TUIRenderer {
 private:
     std::vector<Pixel> framebuffer;
     TUIGraphicManager graphicManager;
-    // lATER MULTIPLE RENDERING
+
     std::vector<Scene*> Scenes_;
     Scene* activeScene_ = nullptr; // scene that the user can interact with
 
@@ -28,7 +28,6 @@ public:
 
     void setActiveScene(Scene* Scene);
 
-    //origin is the origin point ( in 100% of the screen) same for ending
     void InitScene(Scene* scene);
     
     void drawBuffer();

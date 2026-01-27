@@ -49,9 +49,10 @@ public:
 
     Vector getRealPosition() const;
 
-    Vector Rotate() const;
-    Vector Translate() const;
-    Vector Transform() const;
+    Vector Rotate(const Vector& vec) const;
+    Vector Translate(const Vector& vec) const;
+    Vector Transform(const Vector& vec) const;
+    Vector Transform(const Matrix& transformMat) const;
 };
 
 } //namespace

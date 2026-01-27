@@ -15,6 +15,9 @@ public:
     // Default constructor == identity matrix
     Matrix();
     Matrix(std::array<float, 16> value);
+
+    std::array<float, 16> getValue() const;
+
     static Matrix Identity();
 
     Matrix& operator=(const Matrix& other);
