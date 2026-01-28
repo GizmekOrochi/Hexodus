@@ -25,6 +25,11 @@ public:
     float getZ() const;
     float getW() const;
 
+    void setX(const float& value);
+    void setY(const float& value);
+    void setZ(const float& value);
+    void setW(const float& value);
+
     Vector& operator=(const Vector& other);
 
     Vector& operator+=(const Vector& other);

@@ -16,6 +16,11 @@ float Vector::getY() const { return y_; }
 float Vector::getZ() const { return z_; } 
 float Vector::getW() const { return w_; } 
 
+void Vector::setX(const float& value) { this->x_ = value; } 
+void Vector::setY(const float& value) { this->y_ = value; } 
+void Vector::setZ(const float& value) { this->z_ = value; } 
+void Vector::setW(const float& value) { this->w_ = value; } 
+
 Vector& Vector::operator=(const Vector& other) {
     if (this != &other) {
         this->x_ = other.getX();
@@ -174,4 +179,5 @@ Vector Vector::Transform(const Vector& vec) const {
 
     return Transform(translation);
 }
+
 } // namespace

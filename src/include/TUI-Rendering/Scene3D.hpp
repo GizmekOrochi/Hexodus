@@ -19,26 +19,14 @@ class Scene3D : public Scene {
 private:
     std::vector<Geometry::Triangle> ObjectList;
     Camera camera_;
-
-    // Transform a point from world position to camera related position
-    Geometry::Vector worldToCamera(Geometry::Vector& point) const;
-
-    // true if the pixel is in the scene false if not
-    bool projectToScreen(const Geometry::Vector& point) const;
-
-    // sort the triangle from the farthest to the nearest, it also remove the triangles that are hidden
-    std::vector<Geometry::Triangle> applyPainterAlgorithm(std::vector<Geometry::Triangle>& input);
-
-    void drawLine(std::vector<TUI::Pixel>& pixels, float x1, float y1, float x2, float y2, TUI::Pixel color, int height, int width) const;
-
 public:
     Scene3D(std::array<uint8_t, 2> origin, std::array<uint8_t, 2> ending);
 
-    void addTriangle(const Geometry::Triangle& triangle);
-    void addTriangles(const std::vector<Geometry::Triangle>& triangles);
-    
-    void clearTriangles();
+    void addTriangle(const Triangle& triangle);
+    void addTriangles(const std::vector<Triangle>& triangles);
 
+    void clearTriangles();
+    
     Camera& getCamera();
     const Camera& getCamera() const;
 

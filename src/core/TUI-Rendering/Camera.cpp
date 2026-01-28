@@ -45,6 +45,10 @@ const Vector& Camera::getPosition() const {
     return position;
 }
 
+void Camera::setPosition(const Vector& pos) {
+    this->position = pos;
+}
+
 Vector Camera::forward() const {
     float cy{std::cos(rotation.getX())}; 
     float sy{std::sin(rotation.getX())};

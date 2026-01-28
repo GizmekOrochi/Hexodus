@@ -2,14 +2,38 @@
 
 namespace Geometry {
 
-Triangle::Triangle(Vector A, Vector B, Vector C) : A_{A}, B_{B}, C_{C}, color_{TUI::Pixel{255, 255, 255, 255}} {}
+Triangle::Triangle(Vector A, Vector B, Vector C) 
+    : Verticle_{A, B, C}, 
+    color_{TUI::Pixel{255, 255, 255, 255}, TUI::Pixel{255, 255, 255, 255}, TUI::Pixel{255, 255, 255, 255}}, 
+    gradiant_{100, 100, 100} {}
 
-Triangle::Triangle(Vector A, Vector B, Vector C, TUI::Pixel color) : A_{A}, B_{B}, C_{C}, color_{color} {}
+Triangle::Triangle(Vector A, Vector B, Vector C, TUI::Pixel colorA, TUI::Pixel colorB, TUI::Pixel colorC)
+    : Verticle_{A, B, C}, 
+    color_{colorA, colorB, colorC}, 
+    gradiant_{100, 100, 100} {}
 
-Vector Triangle::getA() const { return A_; }
-Vector Triangle::getB() const { return B_; }
-Vector Triangle::getC() const { return C_; }
-TUI::Pixel Triangle::getColor() const { return color_; }
+Triangle::Triangle(Vector A, Vector B, Vector C, TUI::Pixel colorA, TUI::Pixel colorB, TUI::Pixel colorC, uint8_t gradiantA, uint8_t gradiantB, uint8_t gradiantC)
+    : Verticle_{A, B, C}, 
+    color_{colorA, colorB, colorC}, 
+    gradiant_{gradiantA, gradiantB, gradiantC} {}
+
+Triangle::Triangle(const Triangle& other)
+    : Verticle_{other.getA(), other.getB(), other.getC()}, 
+    color_{other.getColorA(), other.getColorB(), other.getColorC()}, 
+    gradiant_{other.getGradiantA(), other.getGradiantB(), other.getGradiantC()} {}
+
+
+Vector Triangle::getA() const { return Verticle_[0]; }
+Vector Triangle::getB() const { return Verticle_[1]; }
+Vector Triangle::getC() const { return Verticle_[2]; }
+
+TUI::Pixel Triangle::getColorA() const { return color_[0]; }
+TUI::Pixel Triangle::getColorB() const { return color_[1]; }
+TUI::Pixel Triangle::getColorC() const { return color_[2]; }
+
+uint8_t Triangle::getGradiantA() const { return gradiant_[0]; }
+uint8_t Triangle::getGradiantB() const { return gradiant_[1]; }
+uint8_t Triangle::getGradiantC() const { return gradiant_[2]; }
 
 Triangle Triangle::translate(float x, float y, float z) const {
     Matrix translation = Matrix::createTranslation(x, y, z);
@@ -33,10 +57,15 @@ Triangle Triangle::rotateZ(float angle) const {
 
 Triangle Triangle::transform(const Matrix& matrix) const {
     return Triangle(
-        A_.Transform(matrix),
-        B_.Transform(matrix),
-        C_.Transform(matrix),
-        color_
+        Verticle_[0].Transform(matrix),
+        Verticle_[1].Transform(matrix),
+        Verticle_[2].Transform(matrix),
+        color_[0],
+        color_[1],
+        color_[2],
+        gradiant_[0],
+        gradiant_[1],
+        gradiant_[2]
     );
 }
 

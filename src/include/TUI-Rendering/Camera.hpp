@@ -20,6 +20,7 @@ public:
     void rotate(float deltaYaw, float deltaPitch);
 
     const Vector& getPosition() const;
+    void setPosition(const Vector& pos);
     float getYaw() const;
     float getPitch() const;
 
