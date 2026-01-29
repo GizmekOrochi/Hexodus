@@ -63,20 +63,15 @@ void TUIRenderer::InitScene(Scene* scene) {
 
 
 void TUIRenderer::drawBuffer() {
-    // For now the scene will be all the screen
-    graphicManager.TUIEnterAltScreen();
-    //graphicManager.disableRawMode();   Disable the charinput
-    graphicManager.TUIHideCursor();
-    graphicManager.TUIClear();
-    graphicManager.TUICursorHome();
-
     RenderScenes();
 
     int h = graphicManager.getHeigth();
     int w = graphicManager.getWidth();
-    
+
+    TUI::RGBPanel lastColor{255, 255, 255};
+
     for (int y = 0; y < h; y++) {
-            graphicManager.TUImoveCursor(y + 1, 1);
+        //graphicManager.TUImoveCursor(y + 1, 1);
         for (int x = 0; x < w; x++) {
             float alphaChannel{framebuffer[y * w + x].a / 255.f};
             float RedChannel{framebuffer[y * w + x].r / alphaChannel};
@@ -85,18 +80,27 @@ void TUIRenderer::drawBuffer() {
             
             TUI::RGBPanel ColorToDiplay{static_cast<uint8_t>(RedChannel), static_cast<uint8_t>(GreenChannel), static_cast<uint8_t>(BlueChannel)};
             
-            graphicManager.TUISetColor(ColorToDiplay, ColorToDiplay);
-            graphicManager.TUIDisplayChar(TUI::QuadBlock::empty);
+            if(ColorToDiplay.R_ == lastColor.R_ && ColorToDiplay.G_ == lastColor.G_ && ColorToDiplay.B_ == lastColor.B_) graphicManager.addPixel(TUI::QuadBlock::empty);
+            else graphicManager.addPixel(TUI::QuadBlock::empty, ColorToDiplay, ColorToDiplay);
         }
     }
+    graphicManager.execCommand();
 }
 
 
 void TUIRenderer::setActiveScene(Scene* Scene) { this->activeScene_ = Scene; };
 
+void TUIRenderer::activate() {
+    graphicManager.TUIEnterAltScreen();
+    //graphicManager.enableRawMode();   Disable the charinput
+    graphicManager.TUIHideCursor();
+    graphicManager.TUIClear();
+    graphicManager.TUICursorHome();
+}
+
 void TUIRenderer::restore() {
     graphicManager.TUIResetColors();
-    graphicManager.enableRawMode();
+    graphicManager.disableRawMode();
     graphicManager.TUIShowCursor();
     graphicManager.TUILeaveAltScreen();
 }

@@ -2,7 +2,7 @@
 
 namespace TUI {
 
-TUIGraphicManager::TUIGraphicManager() : TUIheight_(), TUIWidth_(), colorator_() {
+TUIGraphicManager::TUIGraphicManager() : TUIheight_(), TUIWidth_(), colorator_(), command{""} {
     winsize ws{};
     if(ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1) throw std::logic_error("Error couldn't init TUIGraphicManager");
     TUIheight_ = ws.ws_row;
@@ -49,7 +49,6 @@ void TUIGraphicManager::TUIDisplayChar(const std::string_view& glyph) {
     write(STDOUT_FILENO, glyph.data(), glyph.size());
 }
 
-
 void TUIGraphicManager::TUImoveCursor(int height, int width) {
     std::string moveCursorOrder{std::format(ActionTable::string_MoveCursor, height, width)};
     write(STDOUT_FILENO, moveCursorOrder.data(), moveCursorOrder.size());
@@ -70,5 +69,19 @@ void TUIGraphicManager::disableRawMode() {
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &original_termios);
 }
 
+void TUIGraphicManager::addPixel(const std::string_view& glyph, RGBPanel colorFront, RGBPanel colorBack) {
+    colorator_.SetRGBColor(colorFront, colorBack);
+    command.append(colorator_.GetColorString());
+    command.append(std::string(glyph));
+}
+
+void TUIGraphicManager::addPixel(const std::string_view& glyph) {
+    command.append(std::string(glyph));
+}
+
+void TUIGraphicManager::execCommand() { 
+    TUIAction(command); 
+    command = "";
+};
 
 }// namespace

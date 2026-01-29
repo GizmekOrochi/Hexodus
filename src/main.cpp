@@ -33,9 +33,12 @@ int main() {
             TUI::Pixel{255, 0, 0, 255}
         )
     );
+
+    renderer.activate();
     renderer.drawBuffer();
     while (true) {
         renderer.drawBuffer();
+        //usleep(16'000); // ~60 FPS
     }
     return 0;
 }

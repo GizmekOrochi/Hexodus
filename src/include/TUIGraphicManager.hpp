@@ -38,6 +38,7 @@ private:
     int TUIWidth_{};
     Colorator colorator_{};
     termios original_termios;
+    std::string command;
 
     void TUIAction(const std::string_view& string_action);
 
@@ -68,12 +69,16 @@ public:
     void TUIResetColors();
     void TUISetColor(RGBPanel colorFront, RGBPanel colorBack);
     
-    //Cursor moving
+    //displaying
     void TUIDisplayChar(const std::string_view& glyph);
 
     void enableRawMode();
     void disableRawMode();
-
+    
+    //Commander
+    void addPixel(const std::string_view& glyph, RGBPanel colorFront, RGBPanel colorBack);
+    void addPixel(const std::string_view& glyph);
+    void execCommand();
 
 };
 

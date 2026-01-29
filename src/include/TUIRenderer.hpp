@@ -33,6 +33,8 @@ public:
     
     void drawBuffer();
 
+    // toggle and untoggle the annoying things like the blinking cursor, the crolling or the keyboard polling
+    void activate();
     void restore();
 };
 

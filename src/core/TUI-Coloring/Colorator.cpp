@@ -3,21 +3,25 @@
 namespace TUI {
 
 Colorator::Colorator() : RGBFront_(), RGBBack_(), ColorMod_() {
+    bool hasTrueColor = false;
+    bool has256Color = false;
     if (const char* colorterm = getenv("COLORTERM")) {
         if (strstr(colorterm, "truecolor") || strstr(colorterm, "24bit")) {
-            ColorMod_ = TUIcolorModAvalible::_trueColor;
-            return;
+            hasTrueColor = true;
         }
     }
-
-    else if (const char* term = getenv("TERM")) {
-        if (strstr(term, "256color")) {
-            ColorMod_ = TUIcolorModAvalible::_256Colors;
-            return;
+    if (const char* term = getenv("TERM")) {
+        if (strstr(term, "256color") || strstr(term, "xterm-256color")) {
+            has256Color = true;
         }
     }
-
-    else ColorMod_ = TUIcolorModAvalible::_16Colors;
+    if (hasTrueColor) {
+        ColorMod_ = TUIcolorModAvalible::_trueColor;
+    } else if (has256Color) {
+        ColorMod_ = TUIcolorModAvalible::_256Colors;
+    } else {
+        ColorMod_ = TUIcolorModAvalible::_16Colors;
+    }
 }
 
 RGBPanel Colorator::getRGBFront() { return RGBFront_; }
@@ -60,5 +64,46 @@ void Colorator::ApplyColor() {
     }
 }
 
+std::string Colorator::GetColorString() const {
+    std::string result;
+    
+    switch (ColorMod_) {
+    case TUIcolorModAvalible::_16Colors: {
+        std::string colorFront{std::format(ActionTable::string_16ColorFGMod, 
+            static_cast<int>(transfor16ColorMod(RGBFront_)))};
+        std::string colorBack{std::format(ActionTable::string_16ColorBGMod, 
+            static_cast<int>(transfor16ColorMod(RGBBack_)))};
+        result = colorFront + colorBack;
+        break;
+    }
+
+    case TUIcolorModAvalible::_256Colors: { // not supported yet 16 color mod logic
+        std::string colorFront{std::format(ActionTable::string_16ColorFGMod, 
+            static_cast<int>(transfor16ColorMod(RGBFront_)))};
+        std::string colorBack{std::format(ActionTable::string_16ColorBGMod, 
+            static_cast<int>(transfor16ColorMod(RGBBack_)))};
+        result = colorFront + colorBack;
+        break;
+    }
+
+    case TUIcolorModAvalible::_trueColor: {
+        std::string colorFront{std::format(ActionTable::string_trueColorFGMod, 
+            static_cast<int>(RGBFront_.R_), 
+            static_cast<int>(RGBFront_.G_), 
+            static_cast<int>(RGBFront_.B_))};
+        std::string colorBack{std::format(ActionTable::string_trueColorBGMod, 
+            static_cast<int>(RGBBack_.R_), 
+            static_cast<int>(RGBBack_.G_), 
+            static_cast<int>(RGBBack_.B_))};
+        result = colorFront + colorBack;
+        break;
+    }
+    
+    default:
+        break;
+    }
+    
+    return result;
+}
 
 } // namespace

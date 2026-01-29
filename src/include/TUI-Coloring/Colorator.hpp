@@ -22,6 +22,7 @@ public:
     RGBPanel getRGBFront();
     RGBPanel getRGBBack();
     
+    std::string GetColorString() const;
     void SetRGBColor(RGBPanel colorFront, RGBPanel colorBack);
     void ApplyColor();
     
