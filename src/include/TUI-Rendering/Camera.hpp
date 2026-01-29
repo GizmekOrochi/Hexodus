@@ -21,6 +21,9 @@ public:
 
     const Vector& getPosition() const;
     void setPosition(const Vector& pos);
+
+    void lookAt(const Vector& target);
+
     float getYaw() const;
     float getPitch() const;
 

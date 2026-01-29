@@ -5,24 +5,37 @@
 int main() {
 
     TUI::TUIRenderer renderer{};
-    Scene3D* scene = new Scene3D{{0, 0}, {100, 100}};
-    scene->setBackground(TUI::Pixel{255, 0, 0, 0});
-    scene->getCamera().setPosition({233.f, 233.f, 0.f, 1.f});
+
+    Scene3D* scene  = new Scene3D({0, 0}, {50, 100});
+    Scene2D* scene2 = new Scene2D({50, 0}, {100, 100});
+
+    renderer.InitScene(scene);
+    renderer.InitScene(scene2);
+
+    scene->setBackground(TUI::Pixel{0, 255, 0, 255});
+    scene2->setBackground(TUI::Pixel{0, 0, 255, 255});
+
+    scene->getCamera().setPosition({0.f, 0.f, 0.f, 1.f});
     scene->addTriangle(Triangle{
-        {500.f, 100.f, 500.f, 1.f},
-        {100.f, 100.f, 500.f, 1.f},
-        {100.f, 500.f, 500.f, 1.f},
+        {0.f, 0.f, 50.f, 1.f},
+        {10.f, 0.f, 50.f, 1.f},
+        {0.f, 10.f, 50.f, 1.f},
         TUI::Pixel{255, 0, 0, 255},
         TUI::Pixel{255, 0, 0, 255},
         TUI::Pixel{255, 0, 0, 255}
     });
 
-    renderer.InitScene(scene);
-    
-    while (true)
-    {
+    scene2->add(
+        std::make_unique<UI::UISquare>(
+            std::array<int, 2>{100, 100},
+            std::array<int, 2>{700, 700},
+            1,
+            TUI::Pixel{255, 0, 0, 255}
+        )
+    );
+    renderer.drawBuffer();
+    while (true) {
         renderer.drawBuffer();
     }
-
     return 0;
 }

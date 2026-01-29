@@ -49,6 +49,24 @@ void Camera::setPosition(const Vector& pos) {
     this->position = pos;
 }
 
+void Camera::lookAt(const Vector& target) {
+    Vector direction = target - position;
+    
+    float length = direction.length();
+    if (length == 0.0f) {
+        rotation = Vector{0.0f, 0.0f, 0.0f, 0.0f};
+        return;
+    }
+    direction = direction / length;
+    
+    float yaw = std::atan2(direction.getX(), direction.getZ());
+    float pitch = std::asin(direction.getY());
+
+    rotation = Vector{yaw, pitch, 0.0f, 0.0f};
+
+    clampPitch();
+}
+
 Vector Camera::forward() const {
     float cy{std::cos(rotation.getX())}; 
     float sy{std::sin(rotation.getX())};
