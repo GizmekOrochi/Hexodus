@@ -30,20 +30,13 @@ Vector& Vector::operator=(const Vector& other) {
     }
     return *this;
 }
-
 Vector& Vector::operator+=(const Vector& other) {
-    if(this->w_ == 1.0f && other.getW() == 1.0f) throw std::out_of_range("Point + Point is undefined");
-    this->x_ += other.getX();
-    this->y_ += other.getY();
-    this->z_ += other.getZ();
+    *this = *this + other;
     return *this;
 }
 
 Vector& Vector::operator-=(const Vector& other) {
-    if(this->w_ == 1.0f && other.getW() == 1.0f) throw std::out_of_range("Point - Point mean nothing");
-    this->x_ -= other.getX();
-    this->y_ -= other.getY();
-    this->z_ -= other.getZ();
+    *this = *this - other;
     return *this;
 }
 
@@ -64,22 +57,20 @@ Vector& Vector::operator/=(float scalar) {
 }
 
 Vector Vector::operator+(const Vector& other) const {
-    if(this->w_ == 1.0f && other.getW() == 1.0f) throw std::out_of_range("Point + Point is undefined");
-    float newVecX = this->x_ + other.getX();
-    float newVecY = this->y_ + other.getY();
-    float newVecZ = this->z_ + other.getZ();
-    float newW = (this->w_ == 0.0f && other.getW() == 0.0f) ? 0.0f : 1.0f;
-    return Vector{newVecX, newVecY, newVecZ, newW};
+    if (w_ == 0.0f && other.w_ == 0.0f) return Vector{x_ + other.x_, y_ + other.y_, z_ + other.z_, 0.0f};
+    if (w_ == 1.0f && other.w_ == 0.0f) return Vector{x_ + other.x_, y_ + other.y_, z_ + other.z_, 1.0f};
+    if (w_ == 0.0f && other.w_ == 1.0f) throw std::out_of_range("Vector + Point is undefined");
+    throw std::out_of_range("Point + Point is undefined");
 }
 
+
 Vector Vector::operator-(const Vector& other) const {
-    if(this->w_ == 1.0f && other.getW() == 1.0f) throw std::out_of_range("Point - Point mean nothing");
-    float newVecX = this->x_ - other.getX();
-    float newVecY = this->y_ - other.getY();
-    float newVecZ = this->z_ - other.getZ();
-    float newW = (this->w_ == 0.0f && other.getW() == 0.0f) ? 0.0f : 1.0f;
-    return Vector{newVecX, newVecY, newVecZ, newW};
+    if (w_ == 1.0f && other.w_ == 1.0f) return Vector{x_ - other.x_, y_ - other.y_, z_ - other.z_, 0.0f};
+    if (w_ == 1.0f && other.w_ == 0.0f) return Vector{x_ - other.x_, y_ - other.y_, z_ - other.z_, 1.0f};
+    if (w_ == 0.0f && other.w_ == 0.0f) return Vector{x_ - other.x_, y_ - other.y_, z_ - other.z_, 0.0f};
+    throw std::out_of_range("Vector - Point is undefined");
 }
+
 
 Vector Vector::operator*(float scalar) const { 
     float newVecX = this->x_ * scalar;

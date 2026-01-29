@@ -27,6 +27,7 @@ const Camera& Scene3D::getCamera() const {
 }
 
 bool Scene3D::inPlan(const Vector& input, Vector& output) {
+    Logger::log("inPlan() called");
     float d = 30.f;
     float Zfar = 2000.f;
     if (input.getZ() <= 0.f || input.getZ() > Zfar) return false;
@@ -43,6 +44,7 @@ bool Scene3D::inPlan(const Vector& input, Vector& output) {
 }
 
 Vector Scene3D::worldToCamera(const Vector& position) const {
+    Logger::log("worldToCamera() called");
     Vector rel{position - camera_.getPosition()};
 
     float yaw = camera_.getYaw();
@@ -60,10 +62,14 @@ Vector Scene3D::worldToCamera(const Vector& position) const {
     float y2{cp * y1 - sp * z1};
     float z2{sp * y1 + cp * z1};
 
+    Logger::log("       Projected point=(" + std::to_string(x2) + "," + std::to_string(y2) + "," + std::to_string(z2) + ")");
+
+
     return Vector{x2, y2, z2, 1.f};
 }
 
 bool Scene3D::inScene(const Vector& input, Vector& output) {
+    Logger::log("inScene() called");
     int SceneSizeX = Ending()[0] - Origin()[0];
     int SceneSizeY = Ending()[1] - Origin()[1];
 
@@ -77,6 +83,8 @@ bool Scene3D::inScene(const Vector& input, Vector& output) {
 
     if (projected.getX() < -halfX || projected.getX() > halfX) return false;
     if (projected.getY() < -halfY || projected.getY() > halfY) return false;
+
+    output = projected;
 
     return true;
 }
@@ -163,8 +171,11 @@ std::vector<TUI::Pixel> Scene3D::convertScene(int outputHeight, int outputLength
             float sceneX = SceneOrigin_X + x;
             float sceneY = SceneOrigin_Y + y;
 
-            float pixelCenterX = (sceneX + 0.5f) * pixelToWorldX;
-            float pixelCenterY = (sceneY + 0.5f) * pixelToWorldY;
+            float halfW = maxXBuffer * 0.5f;
+            float halfH = maxYBuffer * 0.5f;
+
+            float pixelCenterX = (x + 0.5f) - halfW;
+            float pixelCenterY = halfH - (y + 0.5f);
 
             if (x == debugX && y == debugY) {
                 Logger::log(
@@ -230,21 +241,21 @@ std::vector<TUI::Pixel> Scene3D::convertScene(int outputHeight, int outputLength
 
                         float r = (colorA.r * (1 - u - v) + colorB.r * u + colorC.r * v) / 255.0f;
                         float g = (colorA.g * (1 - u - v) + colorB.g * u + colorC.g * v) / 255.0f;
-                        float bVal = (colorA.b * (1 - u - v) + colorB.b * u + colorC.b * v) / 255.0f;
+                        float b = (colorA.b * (1 - u - v) + colorB.b * u + colorC.b * v) / 255.0f;
 
                         float gradInterp = (gradA * (1 - u - v) + gradB * u + gradC * v) / 255.0f;
                         
-                        r *= (1.0f - gradInterp * 0.5f);
-                        g *= (1.0f - gradInterp * 0.5f);
-                        bVal *= (1.0f - gradInterp * 0.5f);
+                        //r *= (1.0f - gradInterp * 0.5f);
+                        //g *= (1.0f - gradInterp * 0.5f);
+                        //b *= (1.0f - gradInterp * 0.5f);
 
-                        r = std::max(0.0f, std::min(1.0f, r));
-                        g = std::max(0.0f, std::min(1.0f, g));
-                        bVal = std::max(0.0f, std::min(1.0f, bVal));
+                        //r = std::max(0.0f, std::min(1.0f, r));
+                        //g = std::max(0.0f, std::min(1.0f, g));
+                        //b = std::max(0.0f, std::min(1.0f, b));
                         
                         currentBestColor.r = static_cast<uint8_t>(r * 255);
                         currentBestColor.g = static_cast<uint8_t>(g * 255);
-                        currentBestColor.b = static_cast<uint8_t>(bVal * 255);
+                        currentBestColor.b = static_cast<uint8_t>(b * 255);
                     }
                 }
             }
