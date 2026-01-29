@@ -27,7 +27,6 @@ const Camera& Scene3D::getCamera() const {
 }
 
 bool Scene3D::inPlan(const Vector& input, Vector& output) {
-    Logger::log("inPlan() called");
     float d = 30.f;
     float Zfar = 2000.f;
     if (input.getZ() <= 0.f || input.getZ() > Zfar) return false;
@@ -44,7 +43,6 @@ bool Scene3D::inPlan(const Vector& input, Vector& output) {
 }
 
 Vector Scene3D::worldToCamera(const Vector& position) const {
-    Logger::log("worldToCamera() called");
     Vector rel{position - camera_.getPosition()};
 
     float yaw = camera_.getYaw();
@@ -62,14 +60,10 @@ Vector Scene3D::worldToCamera(const Vector& position) const {
     float y2{cp * y1 - sp * z1};
     float z2{sp * y1 + cp * z1};
 
-    Logger::log("       Projected point=(" + std::to_string(x2) + "," + std::to_string(y2) + "," + std::to_string(z2) + ")");
-
-
     return Vector{x2, y2, z2, 1.f};
 }
 
 bool Scene3D::inScene(const Vector& input, Vector& output) {
-    Logger::log("inScene() called");
     int SceneSizeX = Ending()[0] - Origin()[0];
     int SceneSizeY = Ending()[1] - Origin()[1];
 
@@ -109,9 +103,6 @@ std::vector<Geometry::Triangle> Scene3D::projectTriangles() {
 }
 
 std::vector<TUI::Pixel> Scene3D::convertScene(int outputHeight, int outputLength) {
-    Logger::log("convertScene() called");
-    Logger::log("output: " + std::to_string(outputLength) + "x" + std::to_string(outputHeight));
-
     int SceneOrigin_X = (this->Origin()[0] * outputLength) / 100;
     int SceneOrigin_Y = (this->Origin()[1] * outputHeight) / 100;
     
@@ -121,46 +112,11 @@ std::vector<TUI::Pixel> Scene3D::convertScene(int outputHeight, int outputLength
     int maxXBuffer = SceneEnding_X - SceneOrigin_X;
     int maxYBuffer = SceneEnding_Y - SceneOrigin_Y;
 
-    Logger::log(
-        "Scene bounds px: origin=(" +
-        std::to_string(SceneOrigin_X) + "," +
-        std::to_string(SceneOrigin_Y) + ") size=(" +
-        std::to_string(maxXBuffer) + "," +
-        std::to_string(maxYBuffer) + ")"
-    );
-
     std::vector<TUI::Pixel> SceneBuffer{};
     std::vector<Triangle> TriangleList{projectTriangles()};
 
-    Logger::log("Projected triangles count: " + std::to_string(TriangleList.size()));
-
-    if (!TriangleList.empty()) {
-        const auto& t = TriangleList[0];
-        Logger::log(
-            "Triangle[0] A=(" +
-            std::to_string(t.getA().getX()) + "," +
-            std::to_string(t.getA().getY()) + "," +
-            std::to_string(t.getA().getZ()) + ")"
-        );
-        Logger::log(
-            "Triangle[0] B=(" +
-            std::to_string(t.getB().getX()) + "," +
-            std::to_string(t.getB().getY()) + "," +
-            std::to_string(t.getB().getZ()) + ")"
-        );
-        Logger::log(
-            "Triangle[0] C=(" +
-            std::to_string(t.getC().getX()) + "," +
-            std::to_string(t.getC().getY()) + "," +
-            std::to_string(t.getC().getZ()) + ")"
-        );
-    }
-
-    // Pre-calculate pixel to world coordinates transformation
     float pixelToWorldX = 100.0f / outputLength;
     float pixelToWorldY = 100.0f / outputHeight;
-    int debugX = maxXBuffer / 2;
-    int debugY = maxYBuffer / 2;
 
     for (int y = 0; y < maxYBuffer; y++) {
         for (int x = 0; x < maxXBuffer; x++) {
@@ -176,14 +132,6 @@ std::vector<TUI::Pixel> Scene3D::convertScene(int outputHeight, int outputLength
 
             float pixelCenterX = (x + 0.5f) - halfW;
             float pixelCenterY = halfH - (y + 0.5f);
-
-            if (x == debugX && y == debugY) {
-                Logger::log(
-                    "Debug pixel center scene=(" +
-                    std::to_string(pixelCenterX) + "," +
-                    std::to_string(pixelCenterY) + ")"
-                );
-            }
 
             for (const auto& triangle : TriangleList) {
                 Vector A = triangle.getA();
@@ -210,24 +158,10 @@ std::vector<TUI::Pixel> Scene3D::convertScene(int outputHeight, int outputLength
                 float u = (dot11 * dot02 - dot01 * dot12) * invDenom;
                 float v = (dot00 * dot12 - dot01 * dot02) * invDenom;
 
-                if (x == debugX && y == debugY) {
-                    Logger::log(
-                        "u=" + std::to_string(u) +
-                        " v=" + std::to_string(v) +
-                        " u+v=" + std::to_string(u + v)
-                    );
-                }
-
                 if ((u >= 0) && (v >= 0) && (u + v <= 1.0f)) {
                     float zValue = A.getZ() * (1 - u - v) + B.getZ() * u + C.getZ() * v;
 
                     if (zValue < Ztriangle) {
-                        if (x == debugX && y == debugY) {
-                            Logger::log(
-                                "Pixel HIT triangle, z=" + std::to_string(zValue)
-                            );
-                        }
-
                         Ztriangle = zValue;
                         foundElement = true;
                         
@@ -243,15 +177,7 @@ std::vector<TUI::Pixel> Scene3D::convertScene(int outputHeight, int outputLength
                         float g = (colorA.g * (1 - u - v) + colorB.g * u + colorC.g * v) / 255.0f;
                         float b = (colorA.b * (1 - u - v) + colorB.b * u + colorC.b * v) / 255.0f;
 
-                        float gradInterp = (gradA * (1 - u - v) + gradB * u + gradC * v) / 255.0f;
-                        
-                        //r *= (1.0f - gradInterp * 0.5f);
-                        //g *= (1.0f - gradInterp * 0.5f);
-                        //b *= (1.0f - gradInterp * 0.5f);
-
-                        //r = std::max(0.0f, std::min(1.0f, r));
-                        //g = std::max(0.0f, std::min(1.0f, g));
-                        //b = std::max(0.0f, std::min(1.0f, b));
+                        // TODO GRADIANT COLOR CALCULATION
                         
                         currentBestColor.r = static_cast<uint8_t>(r * 255);
                         currentBestColor.g = static_cast<uint8_t>(g * 255);
