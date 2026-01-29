@@ -3,7 +3,7 @@
 static std::ofstream logFile;
 
 void Logger::log(const std::string& msg) {
-    logFile.open("log.txt", std::ios::out | std::ios::trunc);
+    if (!logFile.is_open()) logFile.open("log.txt", std::ios::out | std::ios::trunc);
     logFile << msg << '\n';
     logFile.flush();
 }

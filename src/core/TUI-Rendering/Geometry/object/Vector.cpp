@@ -32,6 +32,7 @@ Vector& Vector::operator=(const Vector& other) {
 }
 
 Vector& Vector::operator+=(const Vector& other) {
+    if(this->w_ == 1.0f && other.getW() == 1.0f) throw std::out_of_range("Point + Point is undefined");
     this->x_ += other.getX();
     this->y_ += other.getY();
     this->z_ += other.getZ();
@@ -39,6 +40,7 @@ Vector& Vector::operator+=(const Vector& other) {
 }
 
 Vector& Vector::operator-=(const Vector& other) {
+    if(this->w_ == 1.0f && other.getW() == 1.0f) throw std::out_of_range("Point - Point mean nothing");
     this->x_ -= other.getX();
     this->y_ -= other.getY();
     this->z_ -= other.getZ();
@@ -62,7 +64,7 @@ Vector& Vector::operator/=(float scalar) {
 }
 
 Vector Vector::operator+(const Vector& other) const {
-    if(this->w_ == 1.0f && other.getW() == 1.0f) throw std::out_of_range("Point - Point mean nothing");
+    if(this->w_ == 1.0f && other.getW() == 1.0f) throw std::out_of_range("Point + Point is undefined");
     float newVecX = this->x_ + other.getX();
     float newVecY = this->y_ + other.getY();
     float newVecZ = this->z_ + other.getZ();
@@ -94,19 +96,11 @@ Vector Vector::operator/(float scalar) const {
     return Vector{newVecX, newVecY, newVecZ, this->w_};
 }
 
-Vector operator*(const Matrix& matrix, const Vector& vector) {
+Vector operator*(const Vector& vector, const Matrix& matrix) {
     float x = vector.getX() * matrix[0] + vector.getY() * matrix[4] + vector.getZ() * matrix[8] + vector.getW() * matrix[12];
     float y = vector.getX() * matrix[1] + vector.getY() * matrix[5] + vector.getZ() * matrix[9] + vector.getW() * matrix[13];
     float z = vector.getX() * matrix[2] + vector.getY() * matrix[6] + vector.getZ() * matrix[10] + vector.getW() * matrix[14];
     float w = vector.getX() * matrix[3] + vector.getY() * matrix[7] + vector.getZ() * matrix[11] + vector.getW() * matrix[15];
-    return Vector(x, y, z, w);
-}
-
-Vector operator*(const Vector& vector, const Matrix& matrix) {
-    float x = vector.getX() * matrix[0] + vector.getY() * matrix[1] + vector.getZ() * matrix[2] + vector.getW() * matrix[3];
-    float y = vector.getX() * matrix[4] + vector.getY() * matrix[5] + vector.getZ() * matrix[6] + vector.getW() * matrix[7];
-    float z = vector.getX() * matrix[8] + vector.getY() * matrix[9] + vector.getZ() * matrix[10] + vector.getW() * matrix[11];
-    float w = vector.getX() * matrix[12] + vector.getY() * matrix[13] + vector.getZ() * matrix[14] + vector.getW() * matrix[15];
     return Vector(x, y, z, w);
 }
 

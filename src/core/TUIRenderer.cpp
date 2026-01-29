@@ -2,7 +2,10 @@
 
 namespace TUI {
 
+#include <cassert>
+
 void TUIRenderer::RenderScenes() {
+    assert(activeScene_ != nullptr && "TUIRenderer::RenderScenes(): activeScene_ is null");
     graphicManager.update();
     framebuffer.clear();
     framebuffer.reserve(graphicManager.getWidth() * graphicManager.getHeigth());
@@ -11,7 +14,7 @@ void TUIRenderer::RenderScenes() {
             framebuffer.push_back(Pixel{0, 0, 0, 255});
         }
     }
-    size_t activeSceneIndex{};
+    size_t activeSceneIndex{INT_MAX};
     for(size_t i{}; i < Scenes_.size(); i++) {
         if(Scenes_[i] == activeScene_) {
             activeSceneIndex = i;
@@ -19,8 +22,9 @@ void TUIRenderer::RenderScenes() {
         }
         RenderScene(i);
     }
-    if(activeSceneIndex != 0) RenderScene(activeSceneIndex);
-};
+    if(activeSceneIndex != INT_MAX) RenderScene(activeSceneIndex);
+}
+
 
 void TUIRenderer::RenderScene(size_t index) {
     int h = graphicManager.getHeigth();

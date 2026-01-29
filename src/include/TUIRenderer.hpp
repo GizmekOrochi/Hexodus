@@ -6,6 +6,7 @@
 #include <iostream>
 #include <memory>
 #include <cstdint>
+#include <cassert>
 #include "TUIGraphicManager.hpp"
 #include "TUIRendering.hpp"
 #include "TUI-Rendering/Scene2D.hpp"

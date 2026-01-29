@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <climits>
 #include "Scene.hpp"
 #include "Camera.hpp"
 #include "Geometry/object/Triangle.hpp"
@@ -19,6 +20,12 @@ class Scene3D : public Scene {
 private:
     std::vector<Geometry::Triangle> ObjectList;
     Camera camera_;
+
+    bool inPlan(const Vector& input, Vector& output);
+    Vector worldToCamera(const Vector& position) const;
+
+    bool inScene(const Vector& input, Vector& output);
+    std::vector<Geometry::Triangle> projectTriangles();
 public:
     Scene3D(std::array<uint8_t, 2> origin, std::array<uint8_t, 2> ending);
 

@@ -6,6 +6,9 @@ BIN = bin/Hexodus
 all:
 	$(CXX) $(CXXFLAGS) $(SRC) -o $(BIN)
 
+testMassAlgebra:
+	$(CXX) $(CXXFLAGS) tests/testMassAlgebra.cpp -o bin/testMassAlgebra
+
 run: all
 	./$(BIN)
 

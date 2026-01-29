@@ -42,7 +42,6 @@ public:
     Vector operator*(float scalar) const;
     Vector operator/(float scalar) const;
 
-    friend Vector operator*(const Matrix& matrix, const Vector& vector);
     friend Vector operator*(const Vector& vector, const Matrix& matrix);
 
     float Norm() const;
