@@ -193,7 +193,6 @@ std::vector<TUI::Pixel> Scene3D::convertScene(int outputHeight, int outputLength
             }
         }
     }
-    Logger::log("convertScene() finished frame");
 
     return SceneBuffer;
 }
