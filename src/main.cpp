@@ -38,7 +38,7 @@ int main() {
     renderer.drawBuffer();
     while (true) {
         renderer.drawBuffer();
-        //usleep(16'000); // ~60 FPS
+        usleep(16'000); // ~60 FPS
     }
     return 0;
 }

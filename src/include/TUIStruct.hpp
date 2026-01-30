@@ -47,23 +47,14 @@ inline TUI16Color transfor16ColorMod(const RGBPanel& RGBColor) {
 
     bool isBright = (RGBColor.R_ > 192 && RGBColor.G_ > 192 && RGBColor.B_ > 192);
     
-    if (r == 0 && g == 0 && b == 0) {
-        return isBright ? bright_black : black;
-    } else if (r == 255 && g == 0 && b == 0) {
-        return isBright ? bright_red : red;
-    } else if (r == 0 && g == 255 && b == 0) {
-        return isBright ? bright_green : green;
-    } else if (r == 255 && g == 255 && b == 0) {
-        return isBright ? bright_yellow : yellow;
-    } else if (r == 0 && g == 0 && b == 255) {
-        return isBright ? bright_blue : blue;
-    } else if (r == 255 && g == 0 && b == 255) {
-        return isBright ? bright_magenta : magenta;
-    } else if (r == 0 && g == 255 && b == 255) {
-        return isBright ? bright_cyan : cyan;
-    } else if (r == 255 && g == 255 && b == 255) {
-        return isBright ? bright_white : white;
-    }
+    if (r == 0 && g == 0 && b == 0) return isBright ? bright_black : black;
+    else if (r == 255 && g == 0 && b == 0) return isBright ? bright_red : red;
+    else if (r == 0 && g == 255 && b == 0) return isBright ? bright_green : green;
+    else if (r == 255 && g == 255 && b == 0) return isBright ? bright_yellow : yellow;
+    else if (r == 0 && g == 0 && b == 255) return isBright ? bright_blue : blue;
+    else if (r == 255 && g == 0 && b == 255) return isBright ? bright_magenta : magenta;
+    else if (r == 0 && g == 255 && b == 255) return isBright ? bright_cyan : cyan;
+    else if (r == 255 && g == 255 && b == 255) return isBright ? bright_white : white;
     return black;
 }
 

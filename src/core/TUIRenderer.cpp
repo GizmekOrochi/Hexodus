@@ -63,6 +63,8 @@ void TUIRenderer::InitScene(Scene* scene) {
 
 
 void TUIRenderer::drawBuffer() {
+    graphicManager.TUICursorHome();
+    
     RenderScenes();
 
     int h = graphicManager.getHeigth();
@@ -71,7 +73,7 @@ void TUIRenderer::drawBuffer() {
     TUI::RGBPanel lastColor{255, 255, 255};
 
     for (int y = 0; y < h; y++) {
-        //graphicManager.TUImoveCursor(y + 1, 1);
+        //graphicManager.TUImoveCursor(y + 1, 1); JSP if needed, maybe
         for (int x = 0; x < w; x++) {
             float alphaChannel{framebuffer[y * w + x].a / 255.f};
             float RedChannel{framebuffer[y * w + x].r / alphaChannel};
