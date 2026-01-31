@@ -33,7 +33,6 @@ public:
     const Triangle& Element(size_t index) const;
 
     size_t addTriangle(const Triangle& triangle);
-    size_t addTriangles(const std::vector<Triangle>& triangles);
 
     void clearTriangles();
     

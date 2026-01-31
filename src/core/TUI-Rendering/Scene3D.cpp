@@ -13,11 +13,6 @@ size_t Scene3D::addTriangle(const Triangle& triangle) {
     return ObjectList.size() - 1;
 }
 
-size_t Scene3D::addTriangles(const std::vector<Triangle>& triangles) {
-    ObjectList.insert(ObjectList.end(), triangles.begin(), triangles.end());
-    return ObjectList.size() - 1;
-}
-
 void Scene3D::clearTriangles() {
     int count = ObjectList.size();
     ObjectList.clear();
@@ -75,17 +70,19 @@ bool Scene3D::inScene(const Vector& input, Vector& output) {
     float halfX = SceneSizeX * 0.5f;
     float halfY = SceneSizeY * 0.5f;
 
+    bool inScene{true};
+
     Vector cam = worldToCamera(input);
     Vector projected;
 
-    if (!inPlan(cam, projected)) return false;
+    if (!inPlan(cam, projected)) inScene = false;
 
-    if (projected.getX() < -halfX || projected.getX() > halfX) return false;
-    if (projected.getY() < -halfY || projected.getY() > halfY) return false;
+    if (projected.getX() < -halfX || projected.getX() > halfX) inScene = false;
+    if (projected.getY() < -halfY || projected.getY() > halfY) inScene = false;
 
     output = projected;
 
-    return true;
+    return inScene;
 }
 
 // project the triangles and remove the tiangles not in the scene
@@ -95,9 +92,10 @@ std::vector<Geometry::Triangle> Scene3D::projectTriangles() {
 
     for (const auto& triangle : ObjectList) {
         std::array<Vector, 3> projectedVerticals{};
-        if(!inScene(triangle.getA(), projectedVerticals[0])) continue;
-        if(!inScene(triangle.getB(), projectedVerticals[1])) continue;
-        if(!inScene(triangle.getC(), projectedVerticals[2])) continue;
+        bool vertecAinScene{inScene(triangle.getA(), projectedVerticals[0])};
+        bool vertecBinScene{inScene(triangle.getB(), projectedVerticals[1])};
+        bool vertecCinScene{inScene(triangle.getC(), projectedVerticals[2])};
+        if(!vertecAinScene && (vertecAinScene && vertecBinScene && vertecCinScene)) continue;
         res.push_back(Triangle{
             projectedVerticals[0], projectedVerticals[1], projectedVerticals[2],
             triangle.getColorA(), triangle.getColorB(), triangle.getColorC(),
