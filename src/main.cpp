@@ -12,7 +12,7 @@ int main() {
     renderer.InitScene(scene);
     renderer.InitScene(scene2);
 
-    scene->setBackground(TUI::Pixel{0, 255, 0, 255});
+    scene->setBackground(TUI::Pixel{0, 0, 0, 255});
     scene2->setBackground(TUI::Pixel{0, 0, 255, 255});
 
     scene->getCamera().setPosition({0.f, 0.f, 0.f, 1.f});
@@ -21,8 +21,8 @@ int main() {
         {10.f, 0.f, 50.f, 1.f},
         {0.f, 10.f, 50.f, 1.f},
         TUI::Pixel{255, 0, 0, 255},
-        TUI::Pixel{255, 0, 0, 255},
-        TUI::Pixel{255, 0, 0, 255}
+        TUI::Pixel{0, 255, 0, 255},
+        TUI::Pixel{0, 0, 255, 255}
     });
 
     scene2->add(

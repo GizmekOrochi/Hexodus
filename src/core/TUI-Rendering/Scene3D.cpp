@@ -121,7 +121,7 @@ std::vector<TUI::Pixel> Scene3D::convertScene(int outputHeight, int outputLength
     for (int y = 0; y < maxYBuffer; y++) {
         for (int x = 0; x < maxXBuffer; x++) {
             float Ztriangle{MAXFLOAT};
-            TUI::Pixel currentBestColor;
+            TUI::Pixel currentBestColor{this->Color()};
             bool foundElement = false;
 
             float sceneX = SceneOrigin_X + x;
