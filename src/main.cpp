@@ -17,7 +17,7 @@ int main() {
     scene2->setBackground(TUI::Pixel{0, 0, 255, 255});
 
     scene->getCamera().setPosition({0.f, 0.f, 0.f, 1.f});
-    scene->getCamera().rotate(1.f, 1.f);
+    //scene->getCamera().rotate(1.f, 1.f);
 
     size_t triangle{scene->addTriangle(Triangle{
         {-10.f, 0.f, 50.f, 1.f},
@@ -41,9 +41,10 @@ int main() {
     renderer.drawBuffer();
     while (true) {
         renderer.drawBuffer();
-        //scene->Element(triangle).rotateX(0.1f);
+        scene->Element(triangle).rotateX(0.1f);
+        scene->Element(triangle).rotateY(0.1f);
         scene->Element(triangle).rotateZ(0.1f);
-        //scene->Element(triangle).translate(0.1f, 0.f, 0.f);
+        scene->Element(triangle).translate(0.1f, 0.f, 0.f);
         //scene->getCamera().moveForward(0.001f);
         //scene->getCamera().moveUp(0.001f);
         //scene->getCamera().rotate(0.01f, 0.f);
