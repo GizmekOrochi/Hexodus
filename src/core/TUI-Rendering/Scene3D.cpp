@@ -34,7 +34,7 @@ bool Scene3D::inPlan(const Vector& input, Vector& output) {
     Vector projectedPoint{
         input.getX() * d / input.getZ(),
         input.getY() * d / input.getZ(),
-        d,
+        input.getZ(),
         input.getW()
     };
 
@@ -95,7 +95,7 @@ std::vector<Geometry::Triangle> Scene3D::projectTriangles() {
         bool vertecAinScene{inScene(triangle.getA(), projectedVerticals[0])};
         bool vertecBinScene{inScene(triangle.getB(), projectedVerticals[1])};
         bool vertecCinScene{inScene(triangle.getC(), projectedVerticals[2])};
-        if(!vertecAinScene && (vertecAinScene && vertecBinScene && vertecCinScene)) continue;
+        if (!vertecAinScene && !vertecBinScene && !vertecCinScene) continue;
         res.push_back(Triangle{
             projectedVerticals[0], projectedVerticals[1], projectedVerticals[2],
             triangle.getColorA(), triangle.getColorB(), triangle.getColorC(),
@@ -126,13 +126,8 @@ std::vector<TUI::Pixel> Scene3D::convertScene(int outputHeight, int outputLength
             float Ztriangle{MAXFLOAT};
             TUI::Pixel currentBestColor{this->Color()};
             bool foundElement = false;
-
-            float sceneX = SceneOrigin_X + x;
-            float sceneY = SceneOrigin_Y + y;
-
             float halfW = maxXBuffer * 0.5f;
             float halfH = maxYBuffer * 0.5f;
-
             float pixelCenterX = (x + 0.5f) - halfW;
             float pixelCenterY = halfH - (y + 0.5f);
 
