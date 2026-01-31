@@ -18,7 +18,7 @@ using namespace Rendering;
 
 class Scene3D : public Scene {
 private:
-    std::vector<Geometry::Triangle> ObjectList;
+    std::vector<Triangle> ObjectList;
     Camera camera_;
 
     bool inPlan(const Vector& input, Vector& output);
@@ -29,8 +29,11 @@ private:
 public:
     Scene3D(std::array<uint8_t, 2> origin, std::array<uint8_t, 2> ending);
 
-    void addTriangle(const Triangle& triangle);
-    void addTriangles(const std::vector<Triangle>& triangles);
+    Triangle& Element(size_t index);
+    const Triangle& Element(size_t index) const;
+
+    size_t addTriangle(const Triangle& triangle);
+    size_t addTriangles(const std::vector<Triangle>& triangles);
 
     void clearTriangles();
     

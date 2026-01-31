@@ -1,4 +1,5 @@
 #include "../../../../include/TUI-Rendering/Geometry/object/Triangle.hpp"
+#include "../../../../include/util/Logger.hpp"
 
 namespace Geometry {
 
@@ -35,38 +36,31 @@ uint8_t Triangle::getGradiantA() const { return gradiant_[0]; }
 uint8_t Triangle::getGradiantB() const { return gradiant_[1]; }
 uint8_t Triangle::getGradiantC() const { return gradiant_[2]; }
 
-Triangle Triangle::translate(float x, float y, float z) const {
+Triangle Triangle::translate(float x, float y, float z) {
     Matrix translation = Matrix::createTranslation(x, y, z);
     return transform(translation);
 }
 
-Triangle Triangle::rotateX(float angle) const {
+Triangle Triangle::rotateX(float angle) {
     Matrix rotation = Matrix::createRotationX(angle);
     return transform(rotation);
 }
 
-Triangle Triangle::rotateY(float angle) const {
+Triangle Triangle::rotateY(float angle) {
     Matrix rotation = Matrix::createRotationY(angle);
     return transform(rotation);
 }
 
-Triangle Triangle::rotateZ(float angle) const {
+Triangle Triangle::rotateZ(float angle) {
     Matrix rotation = Matrix::createRotationZ(angle);
     return transform(rotation);
 }
 
-Triangle Triangle::transform(const Matrix& matrix) const {
-    return Triangle(
-        Verticle_[0].Transform(matrix),
-        Verticle_[1].Transform(matrix),
-        Verticle_[2].Transform(matrix),
-        color_[0],
-        color_[1],
-        color_[2],
-        gradiant_[0],
-        gradiant_[1],
-        gradiant_[2]
-    );
+Triangle Triangle::transform(const Matrix& matrix) {
+    Verticle_[0] = Verticle_[0].Transform(matrix);
+    Verticle_[1] = Verticle_[1].Transform(matrix);
+    Verticle_[2] = Verticle_[2].Transform(matrix);
+    return *this;
 }
 
 } // namespace

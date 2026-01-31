@@ -1,16 +1,21 @@
 #include "../../include/TUI-Rendering/Scene3D.hpp"
-#include "../../include/util/Logger.hpp"
 
 using namespace Geometry;
 
 Scene3D::Scene3D(std::array<uint8_t, 2> origin, std::array<uint8_t, 2> ending) : Scene(origin, ending), camera_() {}
 
-void Scene3D::addTriangle(const Triangle& triangle) {
+Triangle& Scene3D::Element(size_t index) { return ObjectList[index]; }
+
+const Triangle& Scene3D::Element(size_t index) const { return ObjectList[index]; }
+
+size_t Scene3D::addTriangle(const Triangle& triangle) {
     ObjectList.push_back(triangle);
+    return ObjectList.size() - 1;
 }
 
-void Scene3D::addTriangles(const std::vector<Triangle>& triangles) {
+size_t Scene3D::addTriangles(const std::vector<Triangle>& triangles) {
     ObjectList.insert(ObjectList.end(), triangles.begin(), triangles.end());
+    return ObjectList.size() - 1;
 }
 
 void Scene3D::clearTriangles() {

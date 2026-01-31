@@ -33,11 +33,11 @@ public:
     uint8_t getGradiantB() const;
     uint8_t getGradiantC() const;
 
-    Triangle translate(float x, float y, float z) const;
-    Triangle rotateX(float angle) const;
-    Triangle rotateY(float angle) const;
-    Triangle rotateZ(float angle) const;
-    Triangle transform(const Matrix& matrix) const;
+    Triangle translate(float x, float y, float z);
+    Triangle rotateX(float angle);
+    Triangle rotateY(float angle);
+    Triangle rotateZ(float angle);
+    Triangle transform(const Matrix& matrix);
 };
 
 }

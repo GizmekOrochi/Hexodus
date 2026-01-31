@@ -1,6 +1,7 @@
 #include <string>
 #include "include/TUIRenderer.hpp"
 #include <iostream>
+#include <string>
 
 int main() {
 
@@ -16,14 +17,15 @@ int main() {
     scene2->setBackground(TUI::Pixel{0, 0, 255, 255});
 
     scene->getCamera().setPosition({0.f, 0.f, 0.f, 1.f});
-    scene->addTriangle(Triangle{
-        {0.f, 0.f, 50.f, 1.f},
+
+    size_t triangle{scene->addTriangle(Triangle{
+        {-10.f, 0.f, 50.f, 1.f},
         {10.f, 0.f, 50.f, 1.f},
         {0.f, 10.f, 50.f, 1.f},
         TUI::Pixel{255, 0, 0, 255},
         TUI::Pixel{0, 255, 0, 255},
         TUI::Pixel{0, 0, 255, 255}
-    });
+    })};
 
     scene2->add(
         std::make_unique<UI::UISquare>(
@@ -38,6 +40,8 @@ int main() {
     renderer.drawBuffer();
     while (true) {
         renderer.drawBuffer();
+        //scene->Element(triangle).rotateY(0.1f);
+        scene->Element(triangle).rotateZ(0.1f);
         usleep(16'000); // ~60 FPS
     }
     return 0;
