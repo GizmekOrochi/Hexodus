@@ -11,8 +11,12 @@ Worklist:
     - Rendering a vector of pixels on the termial
 
     TODO:
-    
-    - Adding Geometry and Triangle rendering
+    - Debbug the 3D rendering
+    - Refractor the lib
     - Handle the user inputs
     - Adding an algorithm to utilise the charaters like "▘", "▗", "▌", "▚", "▛" ? e.g
     - At this step may should refractor a bit 
+
+![Alt text](relative%20resource/Screenshot from 2026-02-01 17-20-47.png?raw=true "Exemple")
+left - 3D scene
+right - 2D scene

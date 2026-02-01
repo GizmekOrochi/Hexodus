@@ -138,8 +138,8 @@ int main() {
     while (true) {
         renderer.drawBuffer();
         for (size_t i = 0; i < triangleIndices.size(); i++) {
-            scene->Element(triangleIndices[i]).rotateY(0.1f, cubeCenter);
-            scene->Element(triangleIndices[i]).rotateZ(0.1f, cubeCenter);
+            scene->Element(triangleIndices[i]).rotateY(0.05f, cubeCenter);
+            scene->Element(triangleIndices[i]).rotateZ(0.05f, cubeCenter);
         }
         usleep(16'000); // ~60 FPS
     }

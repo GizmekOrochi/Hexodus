@@ -75,7 +75,7 @@ bool Scene3D::inScene(const Vector& input, Vector& output) {
     Vector cam = worldToCamera(input);
     Vector projected;
 
-    if (!inPlan(cam, projected)) inScene = false;
+    if (!inPlan(cam, projected)) return false;
 
     if (projected.getX() < -halfX || projected.getX() > halfX) inScene = false;
     if (projected.getY() < -halfY || projected.getY() > halfY) inScene = false;
@@ -86,7 +86,7 @@ bool Scene3D::inScene(const Vector& input, Vector& output) {
 }
 
 // project the triangles and remove the tiangles not in the scene
-std::vector<Geometry::Triangle> Scene3D::projectTriangles() {
+std::vector<Triangle> Scene3D::projectTriangles() {
     std::vector<Triangle> res;
     res.reserve(ObjectList.size());
 
@@ -95,7 +95,9 @@ std::vector<Geometry::Triangle> Scene3D::projectTriangles() {
         bool vertecAinScene{inScene(triangle.getA(), projectedVerticals[0])};
         bool vertecBinScene{inScene(triangle.getB(), projectedVerticals[1])};
         bool vertecCinScene{inScene(triangle.getC(), projectedVerticals[2])};
+        
         if (!vertecAinScene && !vertecBinScene && !vertecCinScene) continue;
+
         res.push_back(Triangle{
             projectedVerticals[0], projectedVerticals[1], projectedVerticals[2],
             triangle.getColorA(), triangle.getColorB(), triangle.getColorC(),
@@ -152,9 +154,8 @@ std::vector<TUI::Pixel> Scene3D::convertScene(int outputHeight, int outputLength
                 float dot11 = v1.Dot(v1);
                 float dot12 = v1.Dot(v2);
 
-                float invDenom = 1.0f / (dot00 * dot11 - dot01 * dot01);
-                float u = (dot11 * dot02 - dot01 * dot12) * invDenom;
-                float v = (dot00 * dot12 - dot01 * dot02) * invDenom;
+                float u = (dot11 * dot02 - dot01 * dot12) * (1.0f / (dot00 * dot11 - dot01 * dot01));
+                float v = (dot00 * dot12 - dot01 * dot02) * (1.0f / (dot00 * dot11 - dot01 * dot01));
 
                 if ((u >= 0) && (v >= 0) && (u + v <= 1.0f)) {
                     float zValue = A.getZ() * (1 - u - v) + B.getZ() * u + C.getZ() * v;
