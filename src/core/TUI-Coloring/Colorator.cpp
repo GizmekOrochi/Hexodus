@@ -2,6 +2,15 @@
 
 namespace TUI {
 
+/* Credit:
+
+    How does unix coloring work : https://unix.stackexchange.com/questions/148/colorizing-your-terminal-and-shell-environment 
+                                  https://stackoverflow.com/questions/10003136/what-is-the-difference-between-xterm-color-xterm-256color
+                                  ( And even more tiny post there and there ... this part was REALLY annoying )
+        Explanation of how the thing TERM work used everywhere in the Colorator
+
+*/
+
 Colorator::Colorator() : RGBFront_(), RGBBack_(), ColorMod_() {
     bool hasTrueColor = false;
     bool has256Color = false;

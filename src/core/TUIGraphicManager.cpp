@@ -2,8 +2,10 @@
 
 /* Credit:
     Getting terminal height and weight : https://stackoverflow.com/questions/1022957/getting-terminal-width-in-c
+        Used in TUIGraphicManager()
 
-    Used in TUIGraphicManager().
+    Enable and Disable terminal RawMode : https://viewsourcecode.org/snaptoken/kilo/02.enteringRawMode.html
+        Used in enableRawMode() and disableRawMode()
 */
 
 namespace TUI {

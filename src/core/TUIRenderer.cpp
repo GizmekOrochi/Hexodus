@@ -73,7 +73,7 @@ void TUIRenderer::drawBuffer() {
     TUI::RGBPanel lastColor{255, 255, 255};
 
     for (int y = 0; y < h; y++) {
-        //graphicManager.TUImoveCursor(y + 1, 1); JSP if needed, maybe
+        //graphicManager.TUImoveCursor(y + 1, 1); will be usfull when the feature of displaying only the active scene will be activated
         for (int x = 0; x < w; x++) {
             float alphaChannel{framebuffer[y * w + x].a / 255.f};
             float RedChannel{framebuffer[y * w + x].r / alphaChannel};
@@ -94,7 +94,7 @@ void TUIRenderer::setActiveScene(Scene* Scene) { this->activeScene_ = Scene; };
 
 void TUIRenderer::activate() {
     graphicManager.TUIEnterAltScreen();
-    //graphicManager.enableRawMode();   Disable the charinput
+    //graphicManager.enableRawMode();   Disable the charinput in commant for now until I implement the polling
     graphicManager.TUIHideCursor();
     graphicManager.TUIClear();
     graphicManager.TUICursorHome();
