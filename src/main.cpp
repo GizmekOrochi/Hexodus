@@ -36,90 +36,90 @@ int main() {
     triangleIndices.push_back(scene->addTriangle(Triangle{
         cubeVertices[0], cubeVertices[1], cubeVertices[2],
         TUI::Pixel{255, 0, 0, 255},   // Red
-        TUI::Pixel{255, 0, 0, 255},
-        TUI::Pixel{255, 0, 0, 255}
+        TUI::Pixel{125, 0, 0, 255},
+        TUI::Pixel{70, 0, 0, 255}
     }));
     
     triangleIndices.push_back(scene->addTriangle(Triangle{
         cubeVertices[0], cubeVertices[2], cubeVertices[3],
-        TUI::Pixel{255, 0, 0, 255},
-        TUI::Pixel{255, 0, 0, 255},
-        TUI::Pixel{255, 0, 0, 255}
+        TUI::Pixel{255, 0, 0, 255},   // Red
+        TUI::Pixel{125, 0, 0, 255},
+        TUI::Pixel{70, 0, 0, 255}
     }));
 
     // Front face
     triangleIndices.push_back(scene->addTriangle(Triangle{
         cubeVertices[4], cubeVertices[5], cubeVertices[6],
         TUI::Pixel{0, 255, 0, 255},   // Green
-        TUI::Pixel{0, 255, 0, 255},
-        TUI::Pixel{0, 255, 0, 255}
+        TUI::Pixel{0, 125, 0, 255},
+        TUI::Pixel{0, 70, 0, 255}
     }));
     
     triangleIndices.push_back(scene->addTriangle(Triangle{
         cubeVertices[4], cubeVertices[6], cubeVertices[7],
-        TUI::Pixel{0, 255, 0, 255},
-        TUI::Pixel{0, 255, 0, 255},
-        TUI::Pixel{0, 255, 0, 255}
+        TUI::Pixel{0, 255, 0, 255},   // Green
+        TUI::Pixel{0, 125, 0, 255},
+        TUI::Pixel{0, 70, 0, 255}
     }));
 
     // Left face
     triangleIndices.push_back(scene->addTriangle(Triangle{
         cubeVertices[0], cubeVertices[3], cubeVertices[7],
         TUI::Pixel{0, 0, 255, 255},   // Blue
-        TUI::Pixel{0, 0, 255, 255},
-        TUI::Pixel{0, 0, 255, 255}
+        TUI::Pixel{0, 0, 125, 255},
+        TUI::Pixel{0, 0, 70, 255}
     }));
     
     triangleIndices.push_back(scene->addTriangle(Triangle{
         cubeVertices[0], cubeVertices[7], cubeVertices[4],
-        TUI::Pixel{0, 0, 255, 255},
-        TUI::Pixel{0, 0, 255, 255},
-        TUI::Pixel{0, 0, 255, 255}
+        TUI::Pixel{0, 0, 255, 255},   // Blue
+        TUI::Pixel{0, 0, 125, 255},
+        TUI::Pixel{0, 0, 70, 255}
     }));
 
     // Right face
     triangleIndices.push_back(scene->addTriangle(Triangle{
         cubeVertices[1], cubeVertices[2], cubeVertices[6],
         TUI::Pixel{255, 255, 0, 255},   // Yellow
-        TUI::Pixel{255, 255, 0, 255},
-        TUI::Pixel{255, 255, 0, 255}
+        TUI::Pixel{125, 125, 0, 255},
+        TUI::Pixel{70, 70, 0, 255}
     }));
     
     triangleIndices.push_back(scene->addTriangle(Triangle{
         cubeVertices[1], cubeVertices[6], cubeVertices[5],
-        TUI::Pixel{255, 255, 0, 255},
-        TUI::Pixel{255, 255, 0, 255},
-        TUI::Pixel{255, 255, 0, 255}
+        TUI::Pixel{255, 255, 0, 255},   // Yellow
+        TUI::Pixel{125, 125, 0, 255},
+        TUI::Pixel{70, 70, 0, 255}
     }));
 
     // Top face
     triangleIndices.push_back(scene->addTriangle(Triangle{
         cubeVertices[3], cubeVertices[2], cubeVertices[6],
         TUI::Pixel{255, 0, 255, 255},   // Magenta
-        TUI::Pixel{255, 0, 255, 255},
-        TUI::Pixel{255, 0, 255, 255}
+        TUI::Pixel{125, 0, 125, 255},
+        TUI::Pixel{70, 0, 70, 255}
     }));
     
     triangleIndices.push_back(scene->addTriangle(Triangle{
         cubeVertices[3], cubeVertices[6], cubeVertices[7],
         TUI::Pixel{255, 0, 255, 255},
-        TUI::Pixel{255, 0, 255, 255},
-        TUI::Pixel{255, 0, 255, 255}
+        TUI::Pixel{125, 0, 125, 255},
+        TUI::Pixel{70, 0, 70, 255}
     }));
 
     // Bottom face
     triangleIndices.push_back(scene->addTriangle(Triangle{
         cubeVertices[0], cubeVertices[1], cubeVertices[5],
         TUI::Pixel{0, 255, 255, 255},   // Cyan
-        TUI::Pixel{0, 255, 255, 255},
-        TUI::Pixel{0, 255, 255, 255}
+        TUI::Pixel{0, 125, 125, 255},
+        TUI::Pixel{0, 70, 70, 255}
     }));
     
     triangleIndices.push_back(scene->addTriangle(Triangle{
         cubeVertices[0], cubeVertices[5], cubeVertices[4],
         TUI::Pixel{0, 255, 255, 255},
-        TUI::Pixel{0, 255, 255, 255},
-        TUI::Pixel{0, 255, 255, 255}
+        TUI::Pixel{0, 125, 125, 255},
+        TUI::Pixel{0, 70, 70, 255}
     }));
 
     // Scene 2D exemple
@@ -134,7 +134,7 @@ int main() {
 
     renderer.activate();
     renderer.drawBuffer();
-    
+
     while (true) {
         renderer.drawBuffer();
         for (size_t i = 0; i < triangleIndices.size(); i++) {

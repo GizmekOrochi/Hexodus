@@ -2,7 +2,7 @@
 
 using namespace Geometry;
 
-Scene3D::Scene3D(std::array<uint8_t, 2> origin, std::array<uint8_t, 2> ending) : Scene(origin, ending), camera_() {}
+Scene3D::Scene3D(std::array<uint8_t, 2> origin, std::array<uint8_t, 2> ending) : Scene(origin, ending), camera_(), BackfaceCulling_(false) {}
 
 Triangle& Scene3D::Element(size_t index) { return ObjectList[index]; }
 
@@ -26,10 +26,15 @@ const Camera& Scene3D::getCamera() const {
     return camera_;
 }
 
+void Scene3D::toggleBackfaceCulling() {
+    this->BackfaceCulling_ = !BackfaceCulling_;
+}
+
 bool Scene3D::inPlan(const Vector& input, Vector& output) {
     float d = 30.f;
+    float Znear = 0.f;
     float Zfar = 2000.f;
-    if (input.getZ() <= 0.f || input.getZ() > Zfar) return false;
+    if (input.getZ() < Znear || input.getZ() > Zfar) return false;
 
     Vector projectedPoint{
         input.getX() * d / input.getZ(),
@@ -92,6 +97,17 @@ std::vector<Triangle> Scene3D::projectTriangles() {
 
     for (const auto& triangle : ObjectList) {
         std::array<Vector, 3> projectedVerticals{};
+
+        if(BackfaceCulling_) {
+            Vector AB = triangle.getB() - triangle.getA();
+            Vector AC = triangle.getC() - triangle.getA();
+
+            Vector N = AB.Cross(AC);
+            Vector V = triangle.getA() - camera_.getPosition();
+
+            if(N.Dot(V) < 0) continue;
+        }
+
         bool vertecAinScene{inScene(triangle.getA(), projectedVerticals[0])};
         bool vertecBinScene{inScene(triangle.getB(), projectedVerticals[1])};
         bool vertecCinScene{inScene(triangle.getC(), projectedVerticals[2])};

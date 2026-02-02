@@ -20,6 +20,7 @@ class Scene3D : public Scene {
 private:
     std::vector<Triangle> ObjectList;
     Camera camera_;
+    bool BackfaceCulling_;
 
     bool inPlan(const Vector& input, Vector& output);
     Vector worldToCamera(const Vector& position) const;
@@ -36,6 +37,8 @@ public:
 
     void clearTriangles();
     
+    void toggleBackfaceCulling();
+
     Camera& getCamera();
     const Camera& getCamera() const;
 

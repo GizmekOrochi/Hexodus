@@ -1,5 +1,11 @@
 #include "../include/TUIGraphicManager.hpp"
 
+/* Credit:
+    Getting terminal height and weight : https://stackoverflow.com/questions/1022957/getting-terminal-width-in-c
+
+    Used in TUIGraphicManager().
+*/
+
 namespace TUI {
 
 TUIGraphicManager::TUIGraphicManager() : TUIheight_(), TUIWidth_(), colorator_(), command{""} {
