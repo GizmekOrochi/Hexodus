@@ -1,4 +1,5 @@
 #include "../../include/TUI-Rendering/Scene3D.hpp"
+#include "../../include/util/Logger.hpp"
 
 using namespace Geometry;
 
@@ -95,10 +96,13 @@ std::vector<Triangle> Scene3D::projectTriangles() {
     std::vector<Triangle> res;
     res.reserve(ObjectList.size());
 
+    Logger logger;
+
     for (const auto& triangle : ObjectList) {
         std::array<Vector, 3> projectedVerticals{};
 
         if(BackfaceCulling_) {
+            logger.log("entering backface culling");
             Vector AB = triangle.getB() - triangle.getA();
             Vector AC = triangle.getC() - triangle.getA();
 
@@ -107,6 +111,8 @@ std::vector<Triangle> Scene3D::projectTriangles() {
 
             if(N.Dot(V) < 0) continue;
         }
+
+
 
         bool vertecAinScene{inScene(triangle.getA(), projectedVerticals[0])};
         bool vertecBinScene{inScene(triangle.getB(), projectedVerticals[1])};
