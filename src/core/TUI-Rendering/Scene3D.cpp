@@ -96,13 +96,10 @@ std::vector<Triangle> Scene3D::projectTriangles() {
     std::vector<Triangle> res;
     res.reserve(ObjectList.size());
 
-    Logger logger;
-
     for (const auto& triangle : ObjectList) {
         std::array<Vector, 3> projectedVerticals{};
 
         if(BackfaceCulling_) {
-            logger.log("entering backface culling");
             Vector AB = triangle.getB() - triangle.getA();
             Vector AC = triangle.getC() - triangle.getA();
 
