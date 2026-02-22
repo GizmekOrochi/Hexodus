@@ -258,6 +258,13 @@ std::vector<TUI::Pixel> Scene3D::convertScene(int outputHeight, int outputLength
                         currentBestColor.g = static_cast<uint8_t>((gOverZ * zValue * interpolatedAlphaPerc) + static_cast<float>(currentBestColor.g) * (1 - interpolatedAlphaPerc));
                         currentBestColor.b = static_cast<uint8_t>((bOverZ * zValue * interpolatedAlphaPerc) + static_cast<float>(currentBestColor.b) * (1 - interpolatedAlphaPerc));
                         currentBestColor.a = 255;
+
+                        /*
+                        currentBestColor.r = currentBestColor.r + static_cast<uint8_t>(rOverZ * zValue * interpolatedAlphaPerc); 
+                        currentBestColor.g = currentBestColor.g + static_cast<uint8_t>(gOverZ * zValue * interpolatedAlphaPerc); 
+                        currentBestColor.b = currentBestColor.b + static_cast<uint8_t>(bOverZ * zValue * interpolatedAlphaPerc); 
+                        currentBestColor.a = 255;
+                        */
                     }
                 }
             }

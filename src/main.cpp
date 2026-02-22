@@ -43,9 +43,9 @@ int main() {
     
     triangleIndices.push_back(scene->addTriangle(Triangle{
         cubeVertices[0], cubeVertices[2], cubeVertices[3],
-        TUI::Pixel{255, 0, 0, 255},   // Red
+        TUI::Pixel{255, 0, 0, 100},   // Red
         TUI::Pixel{125, 0, 0, 255},
-        TUI::Pixel{70, 0, 0, 255}
+        TUI::Pixel{70, 0, 0, 100}
     }));
 
     // Front face
