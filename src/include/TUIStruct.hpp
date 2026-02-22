@@ -86,7 +86,6 @@ namespace ActionTable {
     constexpr std::string_view string_trueColorBGMod{"\x1b[48;2;{};{};{}m"};
 }
 
-
 } //namespace
 
 

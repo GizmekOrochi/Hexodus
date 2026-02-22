@@ -16,12 +16,18 @@
 
 using namespace Rendering;
 
+//used for clipping
+struct ClippingPoint {
+    Vector pos;
+    TUI::Pixel color;
+};
+
 class Scene3D : public Scene {
 private:
     std::vector<Triangle> ObjectList;
     Camera camera_;
     bool BackfaceCulling_;
-
+    
     bool inPlan(const Vector& input, Vector& output);
     Vector worldToCamera(const Vector& position) const;
 
@@ -41,6 +47,9 @@ public:
 
     Camera& getCamera();
     const Camera& getCamera() const;
+
+    ClippingPoint intersectPlane(const ClippingPoint& p1, const ClippingPoint& p2);
+    std::vector<Triangle> clipping(const Triangle& tri);
 
     // int outputHeight, int outputLength are the actual size of the terminal transmitted by the TUI Renderer
     // applyPainterAlgorithm -> for each Triangle for each pixel in the scene if projectToScreen returns true then add to std::vector<TUI::Pixel>

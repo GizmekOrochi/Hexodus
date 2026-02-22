@@ -133,7 +133,7 @@ int main() {
         )
     );
 
-    scene->toggleBackfaceCulling();
+    //scene->toggleBackfaceCulling();
 
     renderer.activate();
     renderer.drawBuffer();
