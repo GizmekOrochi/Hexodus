@@ -5,22 +5,35 @@ A TUI library, to make Graphics App interfaces ( work in progress )
 
 Worklist:
     
-    ADD:
+    DONE:
     - Commanding the Termial LAYOUT ( cusors / character display, coloring, e.g )
     - Displaying "Pixels"
-    - Rendering a vector of pixels on the termial
+    - Rendering triangles
+    - Adding home made Z buffer 
+    - Adding colors on the triangles vertex
+    - Adding clipping + backfaceculling
+    - Alpha channel on the triangles vertex colors
 
     TODO:
-    - Debbug the 3D rendering
     - Refractor the lib
     - Handle the user inputs
+    - Improving the 2D scene
+    - Adding default UI element ( button, text entry, e.g)
+    - Improving the 3D scene
     - Adding an algorithm to utilise the charaters like "▘", "▗", "▌", "▚", "▛" ? e.g
-    - At this step may should refractor a bit 
+    - At this step may should refractor a bit again
 
+    TOTEST:
+    - Transparentcy on the 16 color mode
+
+
+# Exemple on 16 color
 ![Exemple on 16 color](resource/Screenshot%20from%202026-02-01%2017-20-47.png)
 left - 3D scene
 right - 2D scene
 
+# Exemple on truecolor
 ![Exemple on truecolor](resource/Screenshot%20from%202026-02-23%2011-02-04.png)
 
-![Exemple on truecolor transparency](resource/Screenshot%20from%202026-02-23%2011-02-04.png)
+# Exemple on truecolor with transparency
+![Exemple on truecolor with transparency](resource/Screenshot%20from%202026-02-23%2011-31-41.png)
