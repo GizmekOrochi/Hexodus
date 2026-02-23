@@ -43,9 +43,9 @@ int main() {
     
     triangleIndices.push_back(scene->addTriangle(Triangle{
         cubeVertices[0], cubeVertices[2], cubeVertices[3],
-        TUI::Pixel{255, 0, 0, 100},   // Red
+        TUI::Pixel{255, 0, 0, 255},   // Red
         TUI::Pixel{125, 0, 0, 255},
-        TUI::Pixel{70, 0, 0, 100}
+        TUI::Pixel{70, 0, 0, 255}
     }));
 
     // Front face
@@ -112,15 +112,15 @@ int main() {
     triangleIndices.push_back(scene->addTriangle(Triangle{
         cubeVertices[1], cubeVertices[0], cubeVertices[5],
         TUI::Pixel{0, 255, 255, 255},   // Cyan
-        TUI::Pixel{0, 125, 125, 200},
-        TUI::Pixel{0, 70, 70, 0}
+        TUI::Pixel{0, 125, 125, 255},
+        TUI::Pixel{0, 70, 70, 255}
     }));
     
     triangleIndices.push_back(scene->addTriangle(Triangle{
         cubeVertices[5], cubeVertices[0], cubeVertices[4],
         TUI::Pixel{0, 255, 255, 255},
-        TUI::Pixel{0, 125, 125, 200},
-        TUI::Pixel{0, 70, 70, 0}
+        TUI::Pixel{0, 125, 125, 255},
+        TUI::Pixel{0, 70, 70, 255}
     }));
 
     // Scene 2D exemple
