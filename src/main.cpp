@@ -119,8 +119,8 @@ int main() {
     triangleIndices.push_back(scene->addTriangle(Triangle{
         cubeVertices[5], cubeVertices[0], cubeVertices[4],
         TUI::Pixel{0, 255, 255, 255},
-        TUI::Pixel{0, 125, 125, 255},
-        TUI::Pixel{0, 70, 70, 255}
+        TUI::Pixel{0, 125, 125, 200},
+        TUI::Pixel{0, 70, 70, 0}
     }));
 
     // Scene 2D exemple

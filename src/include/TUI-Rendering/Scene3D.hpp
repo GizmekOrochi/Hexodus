@@ -50,6 +50,7 @@ public:
 
     ClippingPoint intersectPlane(const ClippingPoint& p1, const ClippingPoint& p2);
     std::vector<Triangle> clipping(const Triangle& tri);
+    void sortTriangles(std::vector<Triangle>& triangles);
 
     // int outputHeight, int outputLength are the actual size of the terminal transmitted by the TUI Renderer
     // applyPainterAlgorithm -> for each Triangle for each pixel in the scene if projectToScreen returns true then add to std::vector<TUI::Pixel>

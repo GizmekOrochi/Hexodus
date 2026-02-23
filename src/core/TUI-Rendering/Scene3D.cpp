@@ -181,6 +181,27 @@ std::vector<Triangle> Scene3D::projectTriangles() {
     return res;
 }
 
+void Scene3D::sortTriangles(std::vector<Triangle>& triangles) {
+    int n{static_cast<int>(triangles.size())};
+
+    for (int i = 1; i < n; ++i) {
+        Triangle key{triangles[i]};
+        float keyZ{(key.getA().getZ() + key.getB().getZ() + key.getC().getZ()) / 3.f};
+        int j{i - 1};
+
+        while (j >= 0) {
+            float currentZ{(triangles[j].getA().getZ() + triangles[j].getB().getZ() + triangles[j].getC().getZ()) / 3.f};   
+            if (currentZ < keyZ) {
+                triangles[j + 1] = triangles[j];
+                j = j - 1;
+            } else {
+                break;
+            }
+        }
+        triangles[j + 1] = key;
+    }
+}
+
 std::vector<TUI::Pixel> Scene3D::convertScene(int outputHeight, int outputLength) {
     int SceneOrigin_X{(this->Origin()[0] * outputLength) / 100};
     int SceneOrigin_Y{(this->Origin()[1] * outputHeight) / 100};
@@ -192,6 +213,7 @@ std::vector<TUI::Pixel> Scene3D::convertScene(int outputHeight, int outputLength
 
     std::vector<TUI::Pixel> SceneBuffer{};
     std::vector<Triangle> TriangleList{projectTriangles()};
+    sortTriangles(TriangleList);
 
     for (int y = 0; y < maxYBuffer; y++) {
         for (int x = 0; x < maxXBuffer; x++) {
@@ -258,13 +280,6 @@ std::vector<TUI::Pixel> Scene3D::convertScene(int outputHeight, int outputLength
                         currentBestColor.g = static_cast<uint8_t>((gOverZ * zValue * interpolatedAlphaPerc) + static_cast<float>(currentBestColor.g) * (1 - interpolatedAlphaPerc));
                         currentBestColor.b = static_cast<uint8_t>((bOverZ * zValue * interpolatedAlphaPerc) + static_cast<float>(currentBestColor.b) * (1 - interpolatedAlphaPerc));
                         currentBestColor.a = 255;
-
-                        /*
-                        currentBestColor.r = currentBestColor.r + static_cast<uint8_t>(rOverZ * zValue * interpolatedAlphaPerc); 
-                        currentBestColor.g = currentBestColor.g + static_cast<uint8_t>(gOverZ * zValue * interpolatedAlphaPerc); 
-                        currentBestColor.b = currentBestColor.b + static_cast<uint8_t>(bOverZ * zValue * interpolatedAlphaPerc); 
-                        currentBestColor.a = 255;
-                        */
                     }
                 }
             }
