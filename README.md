@@ -17,6 +17,10 @@ Worklist:
     - Adding an algorithm to utilise the charaters like "▘", "▗", "▌", "▚", "▛" ? e.g
     - At this step may should refractor a bit 
 
-![Exemple](resource/Screenshot%20from%202026-02-01%2017-20-47.png)
+![Exemple on 16 color](resource/Screenshot%20from%202026-02-01%2017-20-47.png)
 left - 3D scene
 right - 2D scene
+
+![Exemple on truecolor](resource/Screenshot%20from%202026-02-23%2011-02-04.png)
+
+![Exemple on truecolor transparency](resource/Screenshot%20from%202026-02-23%2011-02-04.png)
