@@ -40,22 +40,27 @@ struct RGBPanel {
 };
 
 // take a color and turn it into one of the 16 color in the enum
-inline TUI16Color transfor16ColorMod(const RGBPanel& RGBColor) {
-    unsigned char r = RGBColor.R_ > 128 ? 255 : 0;
-    unsigned char g = RGBColor.G_ > 128 ? 255 : 0;
-    unsigned char b = RGBColor.B_ > 128 ? 255 : 0;
-
-    bool isBright = (RGBColor.R_ > 192 && RGBColor.G_ > 192 && RGBColor.B_ > 192);
+inline TUI16Color transfor16ColorMod(const RGBPanel& RGBColor) { 
+    unsigned char r = RGBColor.R_ > 60 ? 255 : 0; 
+    unsigned char g = RGBColor.G_ > 60 ? 255 : 0; 
+    unsigned char b = RGBColor.B_ > 60 ? 255 : 0; 
     
-    if (r == 0 && g == 0 && b == 0) return isBright ? bright_black : black;
-    else if (r == 255 && g == 0 && b == 0) return isBright ? bright_red : red;
-    else if (r == 0 && g == 255 && b == 0) return isBright ? bright_green : green;
-    else if (r == 255 && g == 255 && b == 0) return isBright ? bright_yellow : yellow;
-    else if (r == 0 && g == 0 && b == 255) return isBright ? bright_blue : blue;
-    else if (r == 255 && g == 0 && b == 255) return isBright ? bright_magenta : magenta;
-    else if (r == 0 && g == 255 && b == 255) return isBright ? bright_cyan : cyan;
-    else if (r == 255 && g == 255 && b == 255) return isBright ? bright_white : white;
-    return black;
+    if (r == 0 && g == 0 && b == 0) return black; 
+    else if (r == 255 && g == 0 && b == 0) 
+        return (RGBColor.R_ > 192) ? bright_red : (RGBColor.R_ < 30) ? bright_black : red;
+    else if (r == 0 && g == 255 && b == 0) 
+        return (RGBColor.G_ > 192) ? bright_green : (RGBColor.G_ < 30) ? bright_black : green; 
+    else if (r == 255 && g == 255 && b == 0) 
+        return (RGBColor.R_ > 192 && RGBColor.G_ > 192) ? bright_yellow : (RGBColor.R_ < 30 && RGBColor.G_ < 30) ? bright_black : yellow; 
+    else if (r == 0 && g == 0 && b == 255) 
+        return (RGBColor.B_ > 192) ? bright_blue : (RGBColor.B_ < 30) ? bright_black : blue; 
+    else if (r == 255 && g == 0 && b == 255) 
+        return (RGBColor.R_ > 192 && RGBColor.B_ > 192) ? bright_magenta : (RGBColor.R_ < 30) ? bright_black : magenta; 
+    else if (r == 0 && g == 255 && b == 255) 
+        return (RGBColor.G_ > 192 && RGBColor.B_ > 192) ? bright_cyan : (RGBColor.R_ < 30 && RGBColor.B_ < 30) ? bright_black : cyan; 
+    else if (r == 255 && g == 255 && b == 255) 
+        return (RGBColor.R_ > 192 && RGBColor.G_ > 192 && RGBColor.B_ > 192) ? bright_white : (RGBColor.R_ < 30 && RGBColor.G_ < 30 && RGBColor.B_ < 30) ? bright_black : white; 
+    return black; 
 }
 
 // Strings using to ORDER the terminal to OBEY as WE want
