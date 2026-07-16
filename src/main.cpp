@@ -1,151 +1,152 @@
-#include <string>
+#include <array>
+#include <cstddef>
+#include <memory>
+#include <vector>
+#include <unistd.h>
+
 #include "include/TUIRenderer.hpp"
-#include <iostream>
-#include <string>
 
 int main() {
     TUI::TUIRenderer renderer{};
 
-    Scene3D* scene = new Scene3D({0, 0}, {100, 100});
-    Scene2D* scene2 = new Scene2D({50, 0}, {100, 100});
+    Scene scene{{0, 0}, {100, 100}};
+    renderer.InitScene(&scene);
 
-    renderer.InitScene(scene);
-    //renderer.InitScene(scene2);
+    scene.setBackground(TUI::Pixel{0, 0, 0, 255});
 
-    scene->setBackground(TUI::Pixel{0, 0, 0, 255});
-    scene2->setBackground(TUI::Pixel{0, 0, 255, 255});
+    scene.getCamera().setPosition(
+        Geometry::Vector{0.0f, 0.0f, -130.0f, 1.0f}
+    );
+    scene.getCamera().lookAt(
+        Geometry::Vector{0.0f, 0.0f, 0.0f, 1.0f}
+    );
 
-    scene->getCamera().setPosition({0.f, 0.f, -130.f, 1.f});
-    scene->getCamera().lookAt({0.f, 0.f, 0.f, 1.f});
+    constexpr float cubeScale = 50.0f;
 
-    float cubeScale{50.0f};
-    std::vector<Vector> cubeVertices = {
-        {-cubeScale, -cubeScale, -cubeScale, 1.f},
-        {cubeScale, -cubeScale, -cubeScale, 1.f},
-        {cubeScale, cubeScale, -cubeScale, 1.f},
-        {-cubeScale, cubeScale, -cubeScale, 1.f},
-        {-cubeScale, -cubeScale, cubeScale, 1.f},
-        {cubeScale, -cubeScale, cubeScale, 1.f},
-        {cubeScale, cubeScale, cubeScale, 1.f},
-        {-cubeScale, cubeScale, cubeScale, 1.f}
+    const std::vector<Geometry::Vector> cubeVertices{
+        {-cubeScale, -cubeScale, -cubeScale, 1.0f},
+        { cubeScale, -cubeScale, -cubeScale, 1.0f},
+        { cubeScale,  cubeScale, -cubeScale, 1.0f},
+        {-cubeScale,  cubeScale, -cubeScale, 1.0f},
+        {-cubeScale, -cubeScale,  cubeScale, 1.0f},
+        { cubeScale, -cubeScale,  cubeScale, 1.0f},
+        { cubeScale,  cubeScale,  cubeScale, 1.0f},
+        {-cubeScale,  cubeScale,  cubeScale, 1.0f}
     };
 
-    Vector cubeCenter = {0.f, 0.f, 0.f, 1.f};
-    std::vector<size_t> triangleIndices;
-    
+    const Geometry::Vector cubeCenter{0.0f, 0.0f, 0.0f, 1.0f};
+    std::vector<std::size_t> triangleIndices;
+
+    const auto addTriangle = [&](const Geometry::Triangle& triangle) {
+        triangleIndices.push_back(scene.addTriangle(triangle));
+    };
+
     // Back face
-    triangleIndices.push_back(scene->addTriangle(Triangle{
+    addTriangle(Geometry::Triangle{
         cubeVertices[0], cubeVertices[1], cubeVertices[2],
-        TUI::Pixel{255, 0, 0, 255},   // Red
-        TUI::Pixel{125, 0, 0, 255},
-        TUI::Pixel{70, 0, 0, 255}
-    }));
-    
-    triangleIndices.push_back(scene->addTriangle(Triangle{
+        TUI::Pixel{255, 0, 0, 255},
+        TUI::Pixel{255, 0, 0, 255},
+        TUI::Pixel{70, 0, 0, 50}
+    });
+    addTriangle(Geometry::Triangle{
         cubeVertices[0], cubeVertices[2], cubeVertices[3],
-        TUI::Pixel{255, 0, 0, 255},   // Red
-        TUI::Pixel{125, 0, 0, 255},
-        TUI::Pixel{70, 0, 0, 255}
-    }));
+        TUI::Pixel{255, 0, 0, 255},
+        TUI::Pixel{125, 0, 0, 50},
+        TUI::Pixel{70, 0, 0, 50}
+    });
 
     // Front face
-    triangleIndices.push_back(scene->addTriangle(Triangle{
+    addTriangle(Geometry::Triangle{
         cubeVertices[5], cubeVertices[4], cubeVertices[6],
-        TUI::Pixel{0, 255, 0, 255},   // Green
+        TUI::Pixel{0, 255, 0, 255},
         TUI::Pixel{0, 125, 0, 255},
         TUI::Pixel{0, 70, 0, 255}
-    }));
-    
-    triangleIndices.push_back(scene->addTriangle(Triangle{
+    });
+    addTriangle(Geometry::Triangle{
         cubeVertices[6], cubeVertices[4], cubeVertices[7],
-        TUI::Pixel{0, 255, 0, 255},   // Green
+        TUI::Pixel{0, 255, 0, 255},
         TUI::Pixel{0, 125, 0, 255},
         TUI::Pixel{0, 70, 0, 255}
-    }));
+    });
 
     // Left face
-    triangleIndices.push_back(scene->addTriangle(Triangle{
+    addTriangle(Geometry::Triangle{
         cubeVertices[0], cubeVertices[3], cubeVertices[7],
-        TUI::Pixel{0, 0, 255, 255},   // Blue
+        TUI::Pixel{0, 0, 255, 255},
         TUI::Pixel{0, 0, 125, 255},
         TUI::Pixel{0, 0, 70, 255}
-    }));
-    
-    triangleIndices.push_back(scene->addTriangle(Triangle{
+    });
+    addTriangle(Geometry::Triangle{
         cubeVertices[0], cubeVertices[7], cubeVertices[4],
-        TUI::Pixel{0, 0, 255, 255},   // Blue
+        TUI::Pixel{0, 0, 255, 255},
         TUI::Pixel{0, 0, 125, 255},
         TUI::Pixel{0, 0, 70, 255}
-    }));
+    });
 
     // Right face
-    triangleIndices.push_back(scene->addTriangle(Triangle{
+    addTriangle(Geometry::Triangle{
         cubeVertices[2], cubeVertices[1], cubeVertices[6],
-        TUI::Pixel{255, 255, 0, 255},   // Yellow
+        TUI::Pixel{255, 255, 0, 255},
         TUI::Pixel{125, 125, 0, 255},
         TUI::Pixel{70, 70, 0, 255}
-    }));
-    
-    triangleIndices.push_back(scene->addTriangle(Triangle{
+    });
+    addTriangle(Geometry::Triangle{
         cubeVertices[6], cubeVertices[1], cubeVertices[5],
-        TUI::Pixel{255, 255, 0, 255},   // Yellow
+        TUI::Pixel{255, 255, 0, 255},
         TUI::Pixel{125, 125, 0, 255},
         TUI::Pixel{70, 70, 0, 255}
-    }));
+    });
 
     // Top face
-    triangleIndices.push_back(scene->addTriangle(Triangle{
+    addTriangle(Geometry::Triangle{
         cubeVertices[3], cubeVertices[2], cubeVertices[6],
-        TUI::Pixel{255, 0, 255, 255},   // Magenta
+        TUI::Pixel{255, 0, 255, 255},
         TUI::Pixel{125, 0, 125, 255},
         TUI::Pixel{70, 0, 70, 255}
-    }));
-    
-    triangleIndices.push_back(scene->addTriangle(Triangle{
+    });
+    addTriangle(Geometry::Triangle{
         cubeVertices[3], cubeVertices[6], cubeVertices[7],
-        TUI::Pixel{255, 0, 255, 255}, 
+        TUI::Pixel{255, 0, 255, 255},
         TUI::Pixel{125, 0, 125, 255},
         TUI::Pixel{70, 0, 70, 255}
-    }));
+    });
 
     // Bottom face
-    triangleIndices.push_back(scene->addTriangle(Triangle{
+    addTriangle(Geometry::Triangle{
         cubeVertices[1], cubeVertices[0], cubeVertices[5],
-        TUI::Pixel{0, 255, 255, 255},   // Cyan
+        TUI::Pixel{0, 255, 255, 255},
         TUI::Pixel{0, 125, 125, 255},
         TUI::Pixel{0, 70, 70, 255}
-    }));
-    
-    triangleIndices.push_back(scene->addTriangle(Triangle{
+    });
+    addTriangle(Geometry::Triangle{
         cubeVertices[5], cubeVertices[0], cubeVertices[4],
         TUI::Pixel{0, 255, 255, 255},
         TUI::Pixel{0, 125, 125, 255},
         TUI::Pixel{0, 70, 70, 255}
-    }));
+    });
 
-    // Scene 2D exemple
-    scene2->add(
+    // The same Scene also contains UI elements.
+    scene.addUIElement(
         std::make_unique<UI::UISquare>(
-            std::array<int, 2>{100, 100},
-            std::array<int, 2>{700, 700},
+            std::array<int, 2>{700, 80},
+            std::array<int, 2>{950, 300},
             1,
-            TUI::Pixel{255, 0, 0, 255}
+            TUI::Pixel{255, 0, 0, 180}
         )
     );
 
-    //scene->toggleBackfaceCulling();
-
     renderer.activate();
-    renderer.drawBuffer();
 
     while (true) {
         renderer.drawBuffer();
-        for (size_t i = 0; i < triangleIndices.size(); i++) {
-            scene->Element(triangleIndices[i]).rotateY(0.05f, cubeCenter);
-            scene->Element(triangleIndices[i]).rotateZ(0.05f, cubeCenter);
+
+        for (const std::size_t triangleIndex : triangleIndices) {
+            scene.triangle(triangleIndex).rotateY(0.05f, cubeCenter);
+            scene.triangle(triangleIndex).rotateZ(0.05f, cubeCenter);
         }
-        usleep(16'000); // ~60 FPS
+
+        usleep(16'000);
     }
-    
+
     return 0;
 }

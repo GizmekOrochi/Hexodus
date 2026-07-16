@@ -2,42 +2,52 @@
 #define TUIRENDERER_HPP
 
 #pragma once
+
+#include <array>
+#include <cstddef>
+#include <string_view>
 #include <vector>
-#include <iostream>
-#include <memory>
-#include <cstdint>
-#include <cassert>
+
 #include "TUIGraphicManager.hpp"
 #include "TUIRendering.hpp"
-#include "TUI-Rendering/Scene2D.hpp"
-#include "TUI-Rendering/Scene3D.hpp"
+#include "TUI-Rendering/Scene.hpp"
 
 namespace TUI {
-    
+
 class TUIRenderer {
 private:
-    std::vector<Pixel> framebuffer;
-    TUIGraphicManager graphicManager;
+    struct EncodedCell {
+        std::string_view glyph;
+        RGBPanel foreground;
+        RGBPanel background;
+    };
 
-    std::vector<Scene*> Scenes_;
-    Scene* activeScene_ = nullptr; // scene that the user can interact with
+    std::vector<Pixel> framebuffer_;
+    TUIGraphicManager graphicManager_;
 
-    void RenderScene(size_t index);
-    void RenderScenes();
+    std::vector<Scene*> scenes_;
+    Scene* activeScene_;
+
+    void renderScene(std::size_t index);
+    void renderScenes();
+
+    [[nodiscard]] EncodedCell encodeQuad(const Pixel& topLeft, const Pixel& topRight, const Pixel& bottomLeft, const Pixel& bottomRight) const;
+    [[nodiscard]] static std::string_view glyphForMask(std::uint8_t mask);
+    [[nodiscard]] static int colorDistanceSquared(const Pixel& lhs, const Pixel& rhs);
+    [[nodiscard]] static RGBPanel toRGBPanel(const Pixel& pixel);
+
 public:
-    TUIRenderer() : framebuffer{}, graphicManager{}, Scenes_{} {};
+    TUIRenderer();
 
-    void setActiveScene(Scene* Scene);
-
+    void setActiveScene(Scene* scene);
     void InitScene(Scene* scene);
-    
+
     void drawBuffer();
 
-    // toggle and untoggle the annoying things like the blinking cursor, the crolling or the keyboard polling
     void activate();
     void restore();
 };
 
-} //namespace
+} // namespace TUI
 
 #endif // TUIRENDERER_HPP
