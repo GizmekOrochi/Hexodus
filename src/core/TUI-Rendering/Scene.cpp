@@ -275,13 +275,28 @@ void Scene::renderTriangles(std::vector<TUI::Pixel>& colorBuffer, std::vector<fl
         const Geometry::Vector b{triangleValue.getB()};
         const Geometry::Vector c{triangleValue.getC()};
 
-        const Geometry::Vector v0{c.getX() - a.getX(), c.getY() - a.getY(), 0.0f, 1.0f};
-        const Geometry::Vector v1{b.getX() - a.getX(), b.getY() - a.getY(), 0.0f, 1.0f};
+        //Projected coordinates -> framebuffer coordinates.
+        const float ax{a.getX() + halfWidth};
+        const float ay{halfHeight - a.getY()};
 
-        const float dot00{v0.Dot(v0)};
-        const float dot01{v0.Dot(v1)};
-        const float dot11{v1.Dot(v1)};
-        const float denominator{dot00 * dot11 - dot01 * dot01};
+        const float bx{b.getX() + halfWidth};
+        const float by{halfHeight - b.getY()};
+
+        const float cx{c.getX() + halfWidth};
+        const float cy{halfHeight - c.getY()};
+
+        //Only visit pixels inside the triangle's rectangular area.
+        const int minX{std::clamp(static_cast<int>(std::floor(std::min({ax, bx, cx}))), 0, width - 1)};
+        const int maxX{std::clamp(static_cast<int>(std::ceil(std::max({ax, bx, cx})) ), 0, width - 1)};
+        const int minY{std::clamp(static_cast<int>(std::floor(std::min({ay, by, cy}))), 0, height - 1)};
+        const int maxY{std::clamp(static_cast<int>(std::ceil(std::max({ay, by, cy}))), 0, height - 1)};
+
+        if (minX > maxX || minY > maxY) {
+            continue;
+        }
+
+        //Barycentric denominator in framebuffer coordinates.
+        const float denominator{(by - cy) * (ax - cx) + (cx - bx) * (ay - cy)};
 
         if (std::abs(denominator) < 1e-6f) {
             continue;
@@ -289,52 +304,70 @@ void Scene::renderTriangles(std::vector<TUI::Pixel>& colorBuffer, std::vector<fl
 
         const float inverseDenominator{1.0f / denominator};
 
-        for (int y{}; y < height; ++y) {
-            for (int x{}; x < width; ++x) {
-                const float pixelX{static_cast<float>(x) + 0.5f - halfWidth};
-                const float pixelY{halfHeight - (static_cast<float>(y) + 0.5f)};
+        const float inverseZA{1.0f / a.getZ()};
+        const float inverseZB{1.0f / b.getZ()};
+        const float inverseZC{1.0f / c.getZ()};
 
-                const Geometry::Vector v2{ pixelX - a.getX(), pixelY - a.getY(), 0.0f, 1.0f};
+        const TUI::Pixel colorA{triangleValue.getColorA()};
+        const TUI::Pixel colorB{triangleValue.getColorB()};
+        const TUI::Pixel colorC{triangleValue.getColorC()};
 
-                const float dot02{v0.Dot(v2)};
-                const float dot12{v1.Dot(v2)};
+        for (int y{minY}; y <= maxY; ++y) {
+            const float pixelY{static_cast<float>(y) + 0.5f};
 
-                const float u{(dot11 * dot02 - dot01 * dot12) * inverseDenominator};
-                const float v{(dot00 * dot12 - dot01 * dot02) * inverseDenominator};
-                const float w{1.0f - u - v};
+            std::size_t bufferIndex{static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(minX)};
 
-                if (u < 0.0f || v < 0.0f || w < 0.0f) {
+            for (int x{minX}; x <= maxX; ++x, ++bufferIndex) {
+                const float pixelX{static_cast<float>(x) + 0.5f};
+
+                const float weightA{((by - cy) * (pixelX - cx) + (cx - bx) * (pixelY - cy)) * inverseDenominator};
+                const float weightB{((cy - ay) * (pixelX - cx) + (ax - cx) * (pixelY - cy)) * inverseDenominator};
+                const float weightC{1.0f - weightA - weightB};
+
+                //Works for either triangle winding direction.
+                constexpr float edgeTolerance{-1e-5f};
+
+                if (weightA < edgeTolerance || weightB < edgeTolerance || weightC < edgeTolerance) {
                     continue;
                 }
 
-                const float inverseZA{1.0f / a.getZ()};
-                const float inverseZB{1.0f / b.getZ()};
-                const float inverseZC{1.0f / c.getZ()};
-
-                const float interpolatedInverseZ{inverseZA * w + inverseZB * v + inverseZC * u};
+                const float interpolatedInverseZ{inverseZA * weightA + inverseZB * weightB + inverseZC * weightC};
 
                 if (interpolatedInverseZ <= 0.0f) {
                     continue;
                 }
 
-                const float depth = 1.0f / interpolatedInverseZ;
-                const std::size_t bufferIndex =
-                    static_cast<std::size_t>(y * width + x);
+                const float depth{1.0f / interpolatedInverseZ};
 
                 if (depth >= depthBuffer[bufferIndex]) {
                     continue;
                 }
 
-                const TUI::Pixel colorA{triangleValue.getColorA()};
-                const TUI::Pixel colorB{triangleValue.getColorB()};
-                const TUI::Pixel colorC{triangleValue.getColorC()};
+                const float redOverZ{
+                    static_cast<float>(colorA.r) * inverseZA * weightA +
+                    static_cast<float>(colorB.r) * inverseZB * weightB +
+                    static_cast<float>(colorC.r) * inverseZC * weightC
+                };
 
-                const float redOverZ{static_cast<float>(colorA.r) * inverseZA * w + static_cast<float>(colorB.r) * inverseZB * v + static_cast<float>(colorC.r) * inverseZC * u};
-                const float greenOverZ{static_cast<float>(colorA.g) * inverseZA * w + static_cast<float>(colorB.g) * inverseZB * v + static_cast<float>(colorC.g) * inverseZC * u};
-                const float blueOverZ{static_cast<float>(colorA.b) * inverseZA * w + static_cast<float>(colorB.b) * inverseZB * v + static_cast<float>(colorC.b) * inverseZC * u};
-                const float alphaOverZ{static_cast<float>(colorA.a) * inverseZA * w + static_cast<float>(colorB.a) * inverseZB * v + static_cast<float>(colorC.a) * inverseZC * u};
+                const float greenOverZ{
+                    static_cast<float>(colorA.g) * inverseZA * weightA +
+                    static_cast<float>(colorB.g) * inverseZB * weightB +
+                    static_cast<float>(colorC.g) * inverseZC * weightC
+                };
 
-                TUI::Pixel sourceColor{
+                const float blueOverZ{
+                    static_cast<float>(colorA.b) * inverseZA * weightA +
+                    static_cast<float>(colorB.b) * inverseZB * weightB +
+                    static_cast<float>(colorC.b) * inverseZC * weightC
+                };
+
+                const float alphaOverZ{
+                    static_cast<float>(colorA.a) * inverseZA * weightA +
+                    static_cast<float>(colorB.a) * inverseZB * weightB +
+                    static_cast<float>(colorC.a) * inverseZC * weightC
+                };
+
+                const TUI::Pixel sourceColor{
                     static_cast<uint8_t>(std::clamp(redOverZ * depth, 0.0f, 255.0f)),
                     static_cast<uint8_t>(std::clamp(greenOverZ * depth, 0.0f, 255.0f)),
                     static_cast<uint8_t>(std::clamp(blueOverZ * depth, 0.0f, 255.0f)),
@@ -342,6 +375,7 @@ void Scene::renderTriangles(std::vector<TUI::Pixel>& colorBuffer, std::vector<fl
                 };
 
                 colorBuffer[bufferIndex] = alphaBlend(sourceColor, colorBuffer[bufferIndex]);
+
                 depthBuffer[bufferIndex] = depth;
             }
         }

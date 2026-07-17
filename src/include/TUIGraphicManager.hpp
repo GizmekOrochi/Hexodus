@@ -2,53 +2,33 @@
 #define TUIGRAPHICMANAGER_HPP
 
 #pragma once
-#include <sys/ioctl.h>  // terminal size
-#include <signal.h>     // signals (later)
-#include <iostream>
-#include <string_view>
+
+#include <cstddef>
 #include <format>
+#include <string>
+#include <string_view>
+#include <sys/ioctl.h>
 #include <termios.h>
 #include <unistd.h>
-
 
 #include "TUI-Coloring/Colorator.hpp"
 #include "TUIStruct.hpp"
 
 namespace TUI {
 
-/*
-    STRINGS USEFULL FOR CONTROLLING THE TERMINAL
-
-Move cursor to Cursor       \x1b[H	            Move cursor to (1,1)
-Move cursor to (x, y)	    \x1b[%d;%dH	        Move cursor to in x, y
-
-Clear entire screen	        \x1b[2J	            Erase all cells ( NOT THE COLORS )
-Clear to end of line	    \x1b[%xK	            Erase from cursor -> EOL for 0, SOL -> cursor for 1 and all the line for 2
-
-Hide cursor	                \x1b[?25l	        Set Cursor invisible
-Show cursor	                \x1b[?25h	        Set Cursor visible
-
-Reset colors	            \x1b[0m	Reset       colors & styles
-
-Color Mod 16 FG             "ESC[3Xm"           put the color to the forground with X bing between 0 to 7 see the 16 color enum
-Color Mod 16 FG             "ESC[9Xm"           put the color to the background with X bing between 0 to 7 see the 16 color enum
-
-    For the actual used string look in ActionTable in src/include/TUIStruct
-*/
-
 class TUIGraphicManager {
 private:
     int TUIheight_{};
     int TUIWidth_{};
     Colorator colorator_{};
-    termios original_termios;
-    std::string command;
+    termios original_termios{};
+    std::string command{};
 
-    void TUIAction(const std::string_view& string_action);
+    void TUIAction(std::string_view stringAction);
 
 public:
-    int getHeigth() { return TUIheight_; }
-    int getWidth() { return TUIWidth_; }
+    [[nodiscard]] int getHeigth() const noexcept { return TUIheight_; }
+    [[nodiscard]] int getWidth() const noexcept { return TUIWidth_; }
 
     TUIGraphicManager();
     void update();
@@ -58,34 +38,34 @@ public:
 
     void TUICursorHome();
     void TUImoveCursor(int height, int width);
-    
-    //Clearing
+
     void TUIClear();
     void TUIClearCusorToRight();
     void TUIClearCusorToLeft();
     void TUIClearCursorLine();
-  
-    //cursor thingd
+
     void TUIHideCursor();
     void TUIShowCursor();
-   
-    //Coloring
+
     void TUIResetColors();
     void TUISetColor(RGBPanel colorFront, RGBPanel colorBack);
-    
-    //displaying
-    void TUIDisplayChar(const std::string_view& glyph);
+
+    void TUIDisplayChar(std::string_view glyph);
 
     void enableRawMode();
     void disableRawMode();
-    
-    //Commander
-    void addPixel(const std::string_view& glyph, RGBPanel colorFront, RGBPanel colorBack);
-    void addPixel(const std::string_view& glyph);
-    void execCommand();
 
+    // Buffered terminal command construction.
+    void reserveCommand(std::size_t capacity);
+    void beginFrame();
+    void endFrame();
+    void addCursorHome();
+    void addCursorMove(int height, int width);
+    void addPixel(std::string_view glyph, RGBPanel colorFront, RGBPanel colorBack);
+    void addPixel(std::string_view glyph);
+    void execCommand();
 };
 
-} //namespace
+} // namespace TUI
 
 #endif // TUIGRAPHICMANAGER_HPP

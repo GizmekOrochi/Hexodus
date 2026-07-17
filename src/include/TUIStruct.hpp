@@ -83,6 +83,10 @@ namespace ActionTable {
     constexpr std::string_view string_EnterAltScreen{"\x1b[?1049h"};
     constexpr std::string_view string_LeaveAltScreen{"\x1b[?1049l"};
 
+    // Atomic/synchronized terminal updates (DEC private mode 2026).
+    constexpr std::string_view string_BeginSynchronizedUpdate{"\x1b[?2026h"};
+    constexpr std::string_view string_EndSynchronizedUpdate{"\x1b[?2026l"};
+
     // Coloring
     constexpr std::string_view string_ResetColors{"\x1b[0m"};
     constexpr std::string_view string_16ColorFGMod{"\x1b[3{}m"};
