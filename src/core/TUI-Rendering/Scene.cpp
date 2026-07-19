@@ -3,11 +3,24 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <numeric>
 #include <stdexcept>
 
 namespace {
 
+bool samePixel(const TUI::Pixel& lhs, const TUI::Pixel& rhs) noexcept {
+    return lhs.r == rhs.r && lhs.g == rhs.g && lhs.b == rhs.b && lhs.a == rhs.a;
+}
+
 TUI::Pixel alphaBlend(const TUI::Pixel& source, const TUI::Pixel& destination) {
+    if (source.a == 0U) {
+        return destination;
+    }
+
+    if (source.a == 255U) {
+        return source;
+    }
+
     const float alpha{static_cast<float>(source.a) / 255.0f};
     const float inverseAlpha{1.0f - alpha};
 
@@ -145,24 +158,13 @@ bool Scene::projectPoint(const Geometry::Vector& input, Geometry::Vector& output
 
     constexpr float pi{3.14159265358979323846f};
     constexpr float verticalFovDegrees{70.0f};
-    constexpr float verticalFovRadians{
-        verticalFovDegrees * pi / 180.0f
-    };
+    constexpr float verticalFovRadians{verticalFovDegrees * pi / 180.0f};
 
-    if (
-        framebufferWidth <= 0 ||
-        framebufferHeight <= 0 ||
-        input.getZ() < nearPlane ||
-        input.getZ() > farPlane
-    ) {
+    if (framebufferWidth <= 0 || framebufferHeight <= 0 || input.getZ() < nearPlane || input.getZ() > farPlane) {
         return false;
     }
 
-    const float focalLength{
-        static_cast<float>(framebufferHeight) /
-        (2.0f * std::tan(verticalFovRadians * 0.5f))
-    };
-
+    const float focalLength{static_cast<float>(framebufferHeight) / (2.0f * std::tan(verticalFovRadians * 0.5f))};
     const float inverseZ{1.0f / input.getZ()};
 
     output = Geometry::Vector{
@@ -177,103 +179,133 @@ bool Scene::projectPoint(const Geometry::Vector& input, Geometry::Vector& output
 
 ClippingPoint Scene::intersectNearPlane(const ClippingPoint& first, const ClippingPoint& second) const {
     constexpr float nearPlane{1.0f};
+    constexpr float epsilon{1e-6f};
 
-    const float zDistance = second.pos.getZ() - first.pos.getZ();
-    if (std::abs(zDistance) < 1e-6f) {
-        return first;
+    const float deltaZ{second.pos.getZ() - first.pos.getZ()};
+
+    if (std::abs(deltaZ) <= epsilon) {
+        return ClippingPoint{Geometry::Vector{first.pos.getX(), first.pos.getY(), nearPlane, 1.0f}, first.color};
     }
 
-    const float t{(nearPlane - first.pos.getZ()) / zDistance};
+    const float t{std::clamp((nearPlane - first.pos.getZ()) / deltaZ, 0.0f, 1.0f)};
 
-    Geometry::Vector position{
-        first.pos.getX() + t * (second.pos.getX() - first.pos.getX()),
-        first.pos.getY() + t * (second.pos.getY() - first.pos.getY()),
+    const Geometry::Vector position{
+        first.pos.getX() + (second.pos.getX() - first.pos.getX()) * t,
+        first.pos.getY() + (second.pos.getY() - first.pos.getY()) * t,
         nearPlane,
         1.0f
     };
 
-    const auto interpolateChannel = [t](uint8_t a, uint8_t b) {
-        return static_cast<uint8_t>(static_cast<float>(a) + t * (static_cast<float>(b) - static_cast<float>(a)));
+    const auto interpolateChannel = [t](uint8_t firstChannel, uint8_t secondChannel) {
+        const float value{static_cast<float>(firstChannel) + (static_cast<float>(secondChannel) - static_cast<float>(firstChannel)) * t};
+
+        return static_cast<uint8_t>(
+            std::clamp(value, 0.0f, 255.0f)
+        );
     };
 
-    TUI::Pixel color{
-        interpolateChannel(first.color.r, second.color.r),
-        interpolateChannel(first.color.g, second.color.g),
-        interpolateChannel(first.color.b, second.color.b),
-        interpolateChannel(first.color.a, second.color.a)
+    return ClippingPoint{
+        position,
+        TUI::Pixel{
+            interpolateChannel(first.color.r, second.color.r),
+            interpolateChannel(first.color.g, second.color.g),
+            interpolateChannel(first.color.b, second.color.b),
+            interpolateChannel(first.color.a, second.color.a)
+        }
     };
-
-    return ClippingPoint{position, color};
 }
 
 std::vector<Geometry::Triangle> Scene::clipTriangle(const Geometry::Triangle& triangleValue) const {
     constexpr float nearPlane{1.0f};
 
-    ClippingPoint pointA{worldToCamera(triangleValue.getA()), triangleValue.getColorA()};
-    ClippingPoint pointB{worldToCamera(triangleValue.getB()), triangleValue.getColorB()};
-    ClippingPoint pointC{worldToCamera(triangleValue.getC()), triangleValue.getColorC()};
-
-    std::vector<ClippingPoint> inside;
-    std::vector<ClippingPoint> outside;
-
-    const auto classify = [&](const ClippingPoint& point) {
-        if (point.pos.getZ() >= nearPlane) {
-            inside.push_back(point);
-        } else {
-            outside.push_back(point);
-        }
+    const std::array<ClippingPoint, 3> input{
+        ClippingPoint{worldToCamera(triangleValue.getA()), triangleValue.getColorA()},
+        ClippingPoint{worldToCamera(triangleValue.getB()), triangleValue.getColorB()},
+        ClippingPoint{worldToCamera(triangleValue.getC()), triangleValue.getColorC()}
     };
 
-    classify(pointA);
-    classify(pointB);
-    classify(pointC);
+    std::array<ClippingPoint, 4> clipped{};
+    std::size_t clippedCount{0};
 
-    if (inside.empty()) {
+    const auto isInside = [](const ClippingPoint& point) {
+        return point.pos.getZ() >= nearPlane;
+    };
+
+    for (std::size_t index{0}; index < input.size(); ++index) {
+        const ClippingPoint& current{input[index]};
+        const ClippingPoint& previous{
+            input[(index + input.size() - 1U) % input.size()]
+        };
+
+        const bool currentInside{isInside(current)};
+        const bool previousInside{isInside(previous)};
+
+        if (!previousInside && currentInside) {
+            clipped[clippedCount++] = intersectNearPlane(previous, current);
+            clipped[clippedCount++] = current;
+        } else if (previousInside && currentInside) { 
+            clipped[clippedCount++] = current;
+        } else if (previousInside && !currentInside) {
+            clipped[clippedCount++] = intersectNearPlane(previous, current);
+        }
+    }
+
+    if (clippedCount < 3U) {
         return {};
     }
 
-    if (inside.size() == 3) {
-        return {Geometry::Triangle{inside[0].pos, inside[1].pos, inside[2].pos, inside[0].color, inside[1].color, inside[2].color}};
+    if (clippedCount == 3U) {
+        return {Geometry::Triangle{clipped[0].pos, clipped[1].pos, clipped[2].pos, clipped[0].color, clipped[1].color, clipped[2].color}};
     }
-
-    if (inside.size() == 1) {
-        const ClippingPoint intersection1{intersectNearPlane(inside[0], outside[0])};
-        const ClippingPoint intersection2{intersectNearPlane(inside[0], outside[1])};
-
-        return {Geometry::Triangle{inside[0].pos, intersection1.pos, intersection2.pos, inside[0].color, intersection1.color, intersection2.color}};
-    }
-
-    const ClippingPoint intersection1{intersectNearPlane(inside[0], outside[0])};
-    const ClippingPoint intersection2{intersectNearPlane(inside[1], outside[0])};
 
     return {
-        Geometry::Triangle{inside[0].pos, inside[1].pos, intersection1.pos, inside[0].color, inside[1].color, intersection1.color},
-        Geometry::Triangle{inside[1].pos, intersection2.pos, intersection1.pos, inside[1].color, intersection2.color, intersection1.color}
+        Geometry::Triangle{clipped[0].pos, clipped[1].pos, clipped[2].pos, clipped[0].color, clipped[1].color, clipped[2].color},
+        Geometry::Triangle{clipped[0].pos,clipped[2].pos, clipped[3].pos, clipped[0].color, clipped[2].color, clipped[3].color}
     };
 }
 
-std::vector<Geometry::Triangle> Scene::projectTriangles(int framebufferWidth, int framebufferHeigh) const {
+std::vector<Geometry::Triangle> Scene::projectTriangles(int framebufferWidth, int framebufferHeight) const {
     std::vector<Geometry::Triangle> projectedTriangles;
+    projectedTriangles.reserve(triangles_.size() * 2U);
 
     for (const Geometry::Triangle& triangleValue : triangles_) {
         const std::vector<Geometry::Triangle> clippedTriangles{clipTriangle(triangleValue)};
 
         for (const Geometry::Triangle& clippedTriangle : clippedTriangles) {
+            const Geometry::Vector cameraA{clippedTriangle.getA()};
+            const Geometry::Vector cameraB{clippedTriangle.getB()};
+            const Geometry::Vector cameraC{clippedTriangle.getC()};
+
+            if (backfaceCulling_) {
+                const Geometry::Vector edgeAB{cameraB - cameraA};
+                const Geometry::Vector edgeAC{cameraC - cameraA};
+
+                const Geometry::Vector normal{
+                    edgeAB.Cross(edgeAC)
+                };
+
+                constexpr float epsilon{1e-6f};
+
+                if (normal.lengthSq() <= epsilon) {
+                    continue;
+                }
+                
+                const float facing{normal.Dot(cameraA)};
+
+
+                if (facing >= 0.0f) {
+                    continue;
+                }
+            }
+
             Geometry::Vector projectedA;
             Geometry::Vector projectedB;
             Geometry::Vector projectedC;
 
-            if (!projectPoint(clippedTriangle.getA(), projectedA, framebufferWidth, framebufferHeigh) 
-                || !projectPoint(clippedTriangle.getB(), projectedB, framebufferWidth, framebufferHeigh) 
-                || !projectPoint(clippedTriangle.getC(), projectedC, framebufferWidth, framebufferHeigh)) {
+            if (!projectPoint(cameraA, projectedA, framebufferWidth, framebufferHeight) ||
+                !projectPoint(cameraB, projectedB, framebufferWidth, framebufferHeight) ||
+                !projectPoint(cameraC, projectedC, framebufferWidth, framebufferHeight)) {
                 continue;
-            }
-
-            if (backfaceCulling_) {
-                const float signedArea{(projectedB.getX() - projectedA.getX()) * (projectedC.getY() - projectedA.getY()) - (projectedB.getY() - projectedA.getY()) * (projectedC.getX() - projectedA.getX())};
-                if (signedArea >= 0.0f) {
-                    continue;
-                }
             }
 
             projectedTriangles.emplace_back(projectedA, projectedB, projectedC, clippedTriangle.getColorA(), clippedTriangle.getColorB(), clippedTriangle.getColorC());
@@ -330,6 +362,7 @@ void Scene::renderTriangles(std::vector<TUI::Pixel>& colorBuffer, std::vector<fl
         const TUI::Pixel colorA{triangleValue.getColorA()};
         const TUI::Pixel colorB{triangleValue.getColorB()};
         const TUI::Pixel colorC{triangleValue.getColorC()};
+        const bool flatColor{samePixel(colorA, colorB) && samePixel(colorA, colorC)};
 
         for (int y{minY}; y <= maxY; ++y) {
             const float pixelY{static_cast<float>(y) + 0.5f};
@@ -362,38 +395,48 @@ void Scene::renderTriangles(std::vector<TUI::Pixel>& colorBuffer, std::vector<fl
                     continue;
                 }
 
-                const float redOverZ{
-                    static_cast<float>(colorA.r) * inverseZA * weightA +
-                    static_cast<float>(colorB.r) * inverseZB * weightB +
-                    static_cast<float>(colorC.r) * inverseZC * weightC
-                };
+                TUI::Pixel sourceColor{};
 
-                const float greenOverZ{
-                    static_cast<float>(colorA.g) * inverseZA * weightA +
-                    static_cast<float>(colorB.g) * inverseZB * weightB +
-                    static_cast<float>(colorC.g) * inverseZC * weightC
-                };
+                if (flatColor) {
+                    sourceColor = colorA;
+                } else {
+                    const float redOverZ{
+                        static_cast<float>(colorA.r) * inverseZA * weightA +
+                        static_cast<float>(colorB.r) * inverseZB * weightB +
+                        static_cast<float>(colorC.r) * inverseZC * weightC
+                    };
 
-                const float blueOverZ{
-                    static_cast<float>(colorA.b) * inverseZA * weightA +
-                    static_cast<float>(colorB.b) * inverseZB * weightB +
-                    static_cast<float>(colorC.b) * inverseZC * weightC
-                };
+                    const float greenOverZ{
+                        static_cast<float>(colorA.g) * inverseZA * weightA +
+                        static_cast<float>(colorB.g) * inverseZB * weightB +
+                        static_cast<float>(colorC.g) * inverseZC * weightC
+                    };
 
-                const float alphaOverZ{
-                    static_cast<float>(colorA.a) * inverseZA * weightA +
-                    static_cast<float>(colorB.a) * inverseZB * weightB +
-                    static_cast<float>(colorC.a) * inverseZC * weightC
-                };
+                    const float blueOverZ{
+                        static_cast<float>(colorA.b) * inverseZA * weightA +
+                        static_cast<float>(colorB.b) * inverseZB * weightB +
+                        static_cast<float>(colorC.b) * inverseZC * weightC
+                    };
 
-                const TUI::Pixel sourceColor{
-                    static_cast<uint8_t>(std::clamp(redOverZ * depth, 0.0f, 255.0f)),
-                    static_cast<uint8_t>(std::clamp(greenOverZ * depth, 0.0f, 255.0f)),
-                    static_cast<uint8_t>(std::clamp(blueOverZ * depth, 0.0f, 255.0f)),
-                    static_cast<uint8_t>(std::clamp(alphaOverZ * depth, 0.0f, 255.0f))
-                };
+                    const float alphaOverZ{
+                        static_cast<float>(colorA.a) * inverseZA * weightA +
+                        static_cast<float>(colorB.a) * inverseZB * weightB +
+                        static_cast<float>(colorC.a) * inverseZC * weightC
+                    };
 
-                colorBuffer[bufferIndex] = alphaBlend(sourceColor, colorBuffer[bufferIndex]);
+                    sourceColor = TUI::Pixel{
+                        static_cast<uint8_t>(std::clamp(redOverZ * depth, 0.0f, 255.0f)),
+                        static_cast<uint8_t>(std::clamp(greenOverZ * depth, 0.0f, 255.0f)),
+                        static_cast<uint8_t>(std::clamp(blueOverZ * depth, 0.0f, 255.0f)),
+                        static_cast<uint8_t>(std::clamp(alphaOverZ * depth, 0.0f, 255.0f))
+                    };
+                }
+
+                if (sourceColor.a == 255U) {
+                    colorBuffer[bufferIndex] = sourceColor;
+                } else if (sourceColor.a != 0U) {
+                    colorBuffer[bufferIndex] = alphaBlend(sourceColor, colorBuffer[bufferIndex]);
+                }
 
                 depthBuffer[bufferIndex] = depth;
             }
@@ -402,47 +445,64 @@ void Scene::renderTriangles(std::vector<TUI::Pixel>& colorBuffer, std::vector<fl
 }
 
 void Scene::renderUI(std::vector<TUI::Pixel>& colorBuffer, int width, int height) const {
-    for (int y{}; y < height; ++y) {
-        for (int x{}; x < width; ++x) {
-            int bestImportance{std::numeric_limits<int>::max()};
-            const UI::UIElement* bestElement{nullptr};
+    if (uiElements_.empty() || width <= 0 || height <= 0) {
+        return;
+    }
 
-            for (const auto& element : uiElements_) {
-                const std::array<int, 2> elementOrigin{element->Origin()};
-                const std::array<int, 2> elementEnding{element->Ending()};
+    //Draw lower-priority elements first. The smallest Importance() value
+    //remains visible, matching the previous per-pixel selection logic.
+    std::vector<std::size_t> order(uiElements_.size());
+    std::iota(order.begin(), order.end(), 0U);
 
-                const int elementOriginX{(elementOrigin[0] * width) / 1000};
-                const int elementOriginY{(elementOrigin[1] * height) / 1000};
-                const int elementEndingX{(elementEnding[0] * width) / 1000};
-                const int elementEndingY{(elementEnding[1] * height) / 1000};
+    std::sort(order.begin(), order.end(), [&](std::size_t lhs, std::size_t rhs) {
+        const int lhsImportance{uiElements_[lhs]->Importance()};
+        const int rhsImportance{uiElements_[rhs]->Importance()};
 
-                if (x < elementOriginX || x > elementEndingX || y < elementOriginY || y > elementEndingY) {
-                    continue;
+        if (lhsImportance != rhsImportance) {
+            return lhsImportance > rhsImportance;
+        }
+
+        //For equal importance, the first inserted element must win.
+        return lhs > rhs;
+    });
+
+    for (const std::size_t elementIndex : order) {
+        const UI::UIElement* const element{uiElements_[elementIndex].get()};
+        const auto origin{element->Origin()};
+        const auto ending{element->Ending()};
+
+        const int minX{std::clamp((origin[0] * width) / 1000, 0, width - 1)};
+        const int minY{std::clamp((origin[1] * height) / 1000, 0, height - 1)};
+        const int maxX{std::clamp((ending[0] * width) / 1000, 0, width - 1)};
+        const int maxY{std::clamp((ending[1] * height) / 1000, 0, height - 1)};
+
+        if (minX > maxX || minY > maxY) {
+            continue;
+        }
+
+        TUI::Pixel source{};
+
+        if (const auto* square{dynamic_cast<const UI::UISquare*>(element)}) {
+            source = square->Color();
+        } else if (dynamic_cast<const UI::UIString*>(element) != nullptr) {
+            source = TUI::Pixel{255, 255, 255, 255};
+        } else {
+            continue;
+        }
+
+        if (source.a == 0U) {
+            continue;
+        }
+
+        for (int y{minY}; y <= maxY; ++y) {
+            std::size_t bufferIndex{static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(minX)};
+
+            for (int x{minX}; x <= maxX; ++x, ++bufferIndex) {
+                if (source.a == 255U) {
+                    colorBuffer[bufferIndex] = source;
+                } else {
+                    colorBuffer[bufferIndex] = alphaBlend(source, colorBuffer[bufferIndex]);
                 }
-
-                if (element->Importance() >= bestImportance) {
-                    continue;
-                }
-
-                bestImportance = element->Importance();
-                bestElement = element.get();
-            }
-
-            if (bestElement == nullptr) {
-                continue;
-            }
-
-            const std::size_t bufferIndex{static_cast<std::size_t>(y * width + x)};
-
-            if (const auto* square{dynamic_cast<const UI::UISquare*>(bestElement)}) {
-                if (square->Color().a == 0) {
-                    continue;
-                }
-
-                colorBuffer[bufferIndex] = alphaBlend(square->Color(), colorBuffer[bufferIndex]);
-            } else if (dynamic_cast<const UI::UIString*>(bestElement) != nullptr) {
-
-                colorBuffer[bufferIndex] = alphaBlend(TUI::Pixel{255, 255, 255, 255}, colorBuffer[bufferIndex]);
             }
         }
     }

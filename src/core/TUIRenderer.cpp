@@ -59,6 +59,17 @@ std::string_view TUIRenderer::glyphForMask(std::uint8_t mask) {
 }
 
 TUIRenderer::EncodedCell TUIRenderer::encodeQuad(const Pixel& topLeft, const Pixel& topRight, const Pixel& bottomLeft, const Pixel& bottomRight) const {
+    const auto samePixel = [](const Pixel& lhs, const Pixel& rhs) noexcept {
+        return lhs.r == rhs.r && lhs.g == rhs.g && lhs.b == rhs.b && lhs.a == rhs.a;
+    };
+
+    if (samePixel(topLeft, topRight) &&
+        samePixel(topLeft, bottomLeft) &&
+        samePixel(topLeft, bottomRight)) {
+        const RGBPanel color{toRGBPanel(topLeft)};
+        return EncodedCell{QuadBlock::empty, color, color};
+    }
+
     const std::array<Pixel, 4> pixels{topLeft, topRight, bottomLeft, bottomRight};
 
     std::size_t backgroundIndex{};
@@ -108,7 +119,13 @@ void TUIRenderer::renderScenes() {
     const int logicalWidth{graphicManager_.getWidth() * 2};
     const int logicalHeight{graphicManager_.getHeigth() * 2};
 
-    framebuffer_.assign(static_cast<std::size_t>(logicalWidth) * static_cast<std::size_t>(logicalHeight), Pixel{0, 0, 0, 255});
+    const std::size_t framebufferSize{static_cast<std::size_t>(logicalWidth) * static_cast<std::size_t>(logicalHeight)};
+
+    if (framebuffer_.size() != framebufferSize) {
+        framebuffer_.resize(framebufferSize);
+    }
+
+    std::fill(framebuffer_.begin(), framebuffer_.end(), Pixel{0, 0, 0, 255});
 
     std::size_t activeSceneIndex{scenes_.size()};
 

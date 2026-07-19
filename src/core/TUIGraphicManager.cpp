@@ -1,9 +1,32 @@
 #include "../include/TUIGraphicManager.hpp"
 
 #include <cerrno>
+#include <charconv>
 #include <stdexcept>
 
 namespace TUI {
+namespace {
+
+void appendInteger(std::string& output, int value) {
+    char buffer[16];
+    const auto result{std::to_chars(buffer, buffer + sizeof(buffer), value)};
+
+    if (result.ec != std::errc{}) {
+        throw std::runtime_error("TUIGraphicManager: integer conversion failed");
+    }
+
+    output.append(buffer, result.ptr);
+}
+
+void appendCursorMove(std::string& output, int row, int column) {
+    output.append("\x1b[");
+    appendInteger(output, row);
+    output.push_back(';');
+    appendInteger(output, column);
+    output.push_back('H');
+}
+
+} // namespace
 
 TUIGraphicManager::TUIGraphicManager() {
     winsize ws{};
@@ -75,9 +98,9 @@ void TUIGraphicManager::TUIDisplayChar(std::string_view glyph) {
 }
 
 void TUIGraphicManager::TUImoveCursor(int height, int width) {
-    const std::string moveCursorOrder{
-        std::format(ActionTable::string_MoveCursor, height, width)
-    };
+    std::string moveCursorOrder;
+    moveCursorOrder.reserve(24U);
+    appendCursorMove(moveCursorOrder, height, width);
     TUIAction(moveCursorOrder);
 }
 
@@ -118,7 +141,7 @@ void TUIGraphicManager::addCursorHome() {
 }
 
 void TUIGraphicManager::addCursorMove(int height, int width) {
-    command.append(std::format(ActionTable::string_MoveCursor, height, width));
+    appendCursorMove(command, height, width);
 }
 
 void TUIGraphicManager::addPixel(std::string_view glyph, RGBPanel colorFront, RGBPanel colorBack) {

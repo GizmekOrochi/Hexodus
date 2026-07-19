@@ -34,10 +34,9 @@ void addBox(Scene& scene, float minX, float minY, float minZ, float maxX, float 
 
     const auto darken = [](Pixel color, float factor) {
         return Pixel{
-            static_cast<std::uint8_t>(static_cast<float>(color.r) * factor),
+            static_cast<std::uint8_t>(static_cast<float>(color.r) * factor), 
             static_cast<std::uint8_t>(static_cast<float>(color.g) * factor), 
-            static_cast<std::uint8_t>(static_cast<float>(color.b) * factor),
-            color.a
+            static_cast<std::uint8_t>(static_cast<float>(color.b) * factor), color.a
         };
     };
 
@@ -48,28 +47,39 @@ void addBox(Scene& scene, float minX, float minY, float minZ, float maxX, float 
     const Pixel topColor{darken(mainColor, 1.0f)};
     const Pixel bottomColor{darken(mainColor, 0.35f)};
 
-    // Face avant
-    addQuad(scene, p000, p100, p110, p010, frontColor, frontColor, frontColor, frontColor);
+    /*
+     * Tous les sommets utilisent le même winding.
+     * Les normales sont dirigées vers l’extérieur de la boîte.
+     */
 
-    // Face arrière
-    addQuad(scene, p101, p001, p011, p111, backColor, backColor, backColor, backColor);
+    // Face avant : normale -Z
+    addQuad(scene, p000, p010, p110, p100, frontColor, frontColor, frontColor, frontColor);
 
-    // Face gauche
-    addQuad(scene, p001, p000, p010, p011, leftColor, leftColor, leftColor, leftColor);
+    // Face arrière : normale +Z
+    addQuad(scene, p001, p101, p111, p011, backColor, backColor, backColor, backColor);
 
-    // Face droite
-    addQuad(scene, p100, p101, p111, p110, rightColor, rightColor, rightColor, rightColor);
+    // Face gauche : normale -X
+    addQuad(scene, p000, p001, p011, p010, leftColor, leftColor, leftColor, leftColor);
 
-    // Dessus
-    addQuad(scene, p010, p110, p111, p011, topColor, topColor, topColor, topColor);
+    // Face droite : normale +X
+    addQuad(scene, p100, p110, p111, p101, rightColor, rightColor, rightColor, rightColor);
 
-    // Dessous
-    addQuad(scene, p001, p101, p100, p000, bottomColor, bottomColor, bottomColor, bottomColor);
+    // Face supérieure : normale +Y
+    addQuad(scene, p010, p011, p111, p110, topColor, topColor, topColor, topColor);
+
+    // Face inférieure : normale -Y
+    addQuad(scene, p000, p100, p101, p001, bottomColor, bottomColor, bottomColor, bottomColor);
 }
 
 // Ajoute une dalle horizontale.
 void addFloorTile(Scene& scene, float minX, float minZ, float maxX, float maxZ, float y, Pixel color) {
-    addQuad(scene, Vector{minX, y, minZ, 1.0f}, Vector{maxX, y, minZ, 1.0f}, Vector{maxX, y, maxZ, 1.0f}, Vector{minX, y, maxZ, 1.0f}, color, color, color, color);
+    const Vector p00{minX, y, minZ, 1.0f};
+    const Vector p01{minX, y, maxZ, 1.0f};
+    const Vector p11{maxX, y, maxZ, 1.0f};
+    const Vector p10{maxX, y, minZ, 1.0f};
+
+    // Normale dirigée vers +Y.
+    addQuad(scene, p00, p01, p11, p10, color, color, color, color);
 }
 
 void buildTestMap(Scene& scene) {
@@ -150,6 +160,7 @@ int main() {
         renderer.InitScene(&scene);
 
         scene.setBackground(TUI::Pixel{4, 6, 12, 255});
+        scene.setBackfaceCulling(true);
 
         buildTestMap(scene);
 

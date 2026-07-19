@@ -32,7 +32,7 @@ private:
     bool backfaceCulling_;
 
     Geometry::Vector worldToCamera(const Geometry::Vector& position) const;
-    bool projectPoint( const Geometry::Vector& input, Geometry::Vector& output, int framebufferWidth, int framebufferHeight) const;
+    bool projectPoint(const Geometry::Vector& input, Geometry::Vector& output, int framebufferWidth, int framebufferHeight) const;
 
     ClippingPoint intersectNearPlane(const ClippingPoint& first, const ClippingPoint& second) const;
 
