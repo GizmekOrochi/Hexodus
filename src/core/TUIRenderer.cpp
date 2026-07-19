@@ -355,12 +355,12 @@ void TUIRenderer::activate() {
     graphicManager_.TUIHideCursor();
     graphicManager_.TUIClear();
     graphicManager_.TUICursorHome();
-    invalidate();
+    //invalidate();
 }
 
 void TUIRenderer::restore() {
     graphicManager_.TUIResetColors();
-    graphicManager_.disableRawMode();
+    //graphicManager_.disableRawMode();
     graphicManager_.TUIShowCursor();
     graphicManager_.TUILeaveAltScreen();
 }

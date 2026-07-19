@@ -18,22 +18,29 @@ TUIGraphicManager::TUIGraphicManager() {
     reserveCommand(static_cast<std::size_t>(TUIheight_) * static_cast<std::size_t>(TUIWidth_) * 24U);
 }
 
-void TUIGraphicManager::TUIAction(std::string_view stringAction) {
+
+void TUIGraphicManager::TUIAction( std::string_view stringAction) {
     const char* data{stringAction.data()};
     std::size_t remaining{stringAction.size()};
 
     while (remaining > 0U) {
-        const ssize_t written{write(STDOUT_FILENO, data, remaining)};
+        const ssize_t written{
+            ::write(STDOUT_FILENO, data, remaining)
+        };
 
-        if (written < 0) {
-            if (errno == EINTR) {
-                continue;
-            }
-            throw std::runtime_error("TUIGraphicManager: terminal write failed");
+        if (written > 0) {
+            data += written;
+            remaining -= static_cast<std::size_t>(written);
+            continue;
         }
 
-        data += written;
-        remaining -= static_cast<std::size_t>(written);
+        if (written < 0 && errno == EINTR) {
+            continue;
+        }
+
+        const int errorCode{errno};
+
+        throw std::runtime_error("TUIGraphicManager: write failed: errno=" + std::to_string(errorCode) + " (" + std::strerror(errorCode) + ")");
     }
 }
 
