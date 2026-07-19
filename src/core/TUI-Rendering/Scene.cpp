@@ -139,19 +139,37 @@ Geometry::Vector Scene::worldToCamera(const Geometry::Vector& position) const {
     return Geometry::Vector{xAfterPitch, yAfterPitch, zAfterPitch, 1.0f};
 }
 
-bool Scene::projectPoint(const Geometry::Vector& input, Geometry::Vector& output) const {
+bool Scene::projectPoint(const Geometry::Vector& input, Geometry::Vector& output, int framebufferWidth, int framebufferHeight) const {
     constexpr float nearPlane{1.0f};
     constexpr float farPlane{2000.0f};
-    constexpr float focalLength{30.0f};
 
-    if (input.getZ() < nearPlane || input.getZ() > farPlane) {
+    constexpr float pi{3.14159265358979323846f};
+    constexpr float verticalFovDegrees{70.0f};
+    constexpr float verticalFovRadians{
+        verticalFovDegrees * pi / 180.0f
+    };
+
+    if (
+        framebufferWidth <= 0 ||
+        framebufferHeight <= 0 ||
+        input.getZ() < nearPlane ||
+        input.getZ() > farPlane
+    ) {
         return false;
     }
 
+    const float focalLength{
+        static_cast<float>(framebufferHeight) /
+        (2.0f * std::tan(verticalFovRadians * 0.5f))
+    };
+
+    const float inverseZ{1.0f / input.getZ()};
+
     output = Geometry::Vector{
-        input.getX() * focalLength / input.getZ(),
-        input.getY() * focalLength / input.getZ(),
-        input.getZ(), input.getW()
+        input.getX() * focalLength * inverseZ,
+        input.getY() * focalLength * inverseZ,
+        input.getZ(),
+        input.getW()
     };
 
     return true;
@@ -234,7 +252,7 @@ std::vector<Geometry::Triangle> Scene::clipTriangle(const Geometry::Triangle& tr
     };
 }
 
-std::vector<Geometry::Triangle> Scene::projectTriangles() const {
+std::vector<Geometry::Triangle> Scene::projectTriangles(int framebufferWidth, int framebufferHeigh) const {
     std::vector<Geometry::Triangle> projectedTriangles;
 
     for (const Geometry::Triangle& triangleValue : triangles_) {
@@ -245,13 +263,14 @@ std::vector<Geometry::Triangle> Scene::projectTriangles() const {
             Geometry::Vector projectedB;
             Geometry::Vector projectedC;
 
-            if (!projectPoint(clippedTriangle.getA(), projectedA) || !projectPoint(clippedTriangle.getB(), projectedB) || !projectPoint(clippedTriangle.getC(), projectedC)) {
+            if (!projectPoint(clippedTriangle.getA(), projectedA, framebufferWidth, framebufferHeigh) 
+                || !projectPoint(clippedTriangle.getB(), projectedB, framebufferWidth, framebufferHeigh) 
+                || !projectPoint(clippedTriangle.getC(), projectedC, framebufferWidth, framebufferHeigh)) {
                 continue;
             }
 
             if (backfaceCulling_) {
                 const float signedArea{(projectedB.getX() - projectedA.getX()) * (projectedC.getY() - projectedA.getY()) - (projectedB.getY() - projectedA.getY()) * (projectedC.getX() - projectedA.getX())};
-
                 if (signedArea >= 0.0f) {
                     continue;
                 }
@@ -265,7 +284,7 @@ std::vector<Geometry::Triangle> Scene::projectTriangles() const {
 }
 
 void Scene::renderTriangles(std::vector<TUI::Pixel>& colorBuffer, std::vector<float>& depthBuffer, int width, int height) const {
-    const std::vector<Geometry::Triangle> projectedTriangles{projectTriangles()};
+    const std::vector<Geometry::Triangle> projectedTriangles{projectTriangles(width, height)};
 
     const float halfWidth{static_cast<float>(width) * 0.5f};
     const float halfHeight{static_cast<float>(height) * 0.5f};

@@ -32,12 +32,12 @@ private:
     bool backfaceCulling_;
 
     Geometry::Vector worldToCamera(const Geometry::Vector& position) const;
-    bool projectPoint(const Geometry::Vector& input, Geometry::Vector& output) const;
+    bool projectPoint( const Geometry::Vector& input, Geometry::Vector& output, int framebufferWidth, int framebufferHeight) const;
 
     ClippingPoint intersectNearPlane(const ClippingPoint& first, const ClippingPoint& second) const;
 
     std::vector<Geometry::Triangle> clipTriangle( const Geometry::Triangle& triangle) const;
-    std::vector<Geometry::Triangle> projectTriangles() const;
+    std::vector<Geometry::Triangle> projectTriangles(int framebufferWidth, int framebufferHeight) const;
 
     void renderTriangles(std::vector<TUI::Pixel>& colorBuffer, std::vector<float>& depthBuffer, int width, int height) const;
 

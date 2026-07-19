@@ -13,32 +13,37 @@ float Camera::getPitch() const {
 }
 
 void Camera::moveForward(float dt) {
-    Vector forwardVec = forward();
-    position += forwardVec * (moveSpeed * dt);
+    const float yaw{rotation.getX()};
+
+    const Vector horizontalForward{std::sin(yaw), 0.0f, std::cos(yaw), 0.0f};
+
+    position += horizontalForward * (moveSpeed * dt);
 }
 
 void Camera::moveRight(float dt) {
-    Vector rightVec = right();
-    position += rightVec * (moveSpeed * dt);
+    const float yaw{rotation.getX()};
+
+    const Vector horizontalRight{std::cos(yaw), 0.0f, -std::sin(yaw), 0.0f};
+
+    position += horizontalRight * (moveSpeed * dt);
 }
 
 void Camera::moveUp(float dt) {
-    Vector upVec{0.0f, 1.0f, 0.0f, 0.0f};
-    position += upVec * (moveSpeed * dt);
+    const Vector worldUp{0.0f, 1.0f, 0.0f, 0.0f};
+
+    position += worldUp * (moveSpeed * dt);
 }
 
 void Camera::rotate(float dyaw, float dpitch) {
-    Vector currentRotation = rotation;
-    Vector newRotation(currentRotation.getX() + dyaw * rotSpeed, currentRotation.getY() + dpitch * rotSpeed, currentRotation.getZ(), currentRotation.getW());
-    rotation = newRotation;
+    rotation = Vector{rotation.getX() + dyaw * rotSpeed, rotation.getY() + dpitch * rotSpeed, rotation.getZ(), rotation.getW()};
+
     clampPitch();
 }
 
 void Camera::clampPitch() {
-    float pitch = rotation.getY();
-    pitch = std::clamp(pitch, -1.45f, 1.45f);
-    Vector newRotation(rotation.getX(), pitch, rotation.getZ(), rotation.getW());
-    rotation = newRotation;
+    const float clampedPitch{std::clamp(rotation.getY(), -1.45f, 1.45f)};
+
+    rotation = Vector{rotation.getX(), clampedPitch, rotation.getZ(), rotation.getW()};
 }
 
 const Vector& Camera::getPosition() const {
@@ -46,21 +51,22 @@ const Vector& Camera::getPosition() const {
 }
 
 void Camera::setPosition(const Vector& pos) {
-    this->position = pos;
+    position = pos;
 }
 
 void Camera::lookAt(const Vector& target) {
-    Vector direction = target - position;
-    
-    float length = direction.length();
-    if (length == 0.0f) {
-        rotation = Vector{0.0f, 0.0f, 0.0f, 0.0f};
+    Vector direction{target - position};
+
+    const float directionLength{direction.length()};
+
+    if (directionLength <= 1e-6f) {
         return;
     }
-    direction = direction / length;
-    
-    float yaw = std::atan2(direction.getX(), direction.getZ());
-    float pitch = std::asin(direction.getY());
+
+    direction /= directionLength;
+
+    const float yaw{std::atan2(direction.getX(), direction.getZ())};
+    const float pitch{-std::asin(std::clamp(direction.getY(), -1.0f, 1.0f))};
 
     rotation = Vector{yaw, pitch, 0.0f, 0.0f};
 
@@ -68,21 +74,42 @@ void Camera::lookAt(const Vector& target) {
 }
 
 Vector Camera::forward() const {
-    float cy{std::cos(rotation.getX())}; 
-    float sy{std::sin(rotation.getX())};
-    float cp{std::cos(rotation.getY())};
-    float sp{std::sin(rotation.getY())};
-    return Vector{sy * cp, -sp, cy * cp, 0.f};
+    const float yaw{rotation.getX()};
+    const float pitch{rotation.getY()};
+
+    const float cosYaw{std::cos(yaw)};
+    const float sinYaw{std::sin(yaw)};
+    const float cosPitch{std::cos(pitch)};
+    const float sinPitch{std::sin(pitch)};
+
+    return Vector{sinYaw * cosPitch, -sinPitch, cosYaw * cosPitch, 0.0f};
 }
 
 Vector Camera::right() const {
-    float cy = std::cos(rotation.getX());
-    float sy = std::sin(rotation.getX());
-    return Vector{cy, 0.0f, -sy, 0.f};
+    const float yaw{rotation.getX()};
+
+    return Vector{std::cos(yaw), 0.0f, -std::sin(yaw), 0.0f};
 }
 
 Vector Camera::up() const {
-    return Vector{0.0f, 1.0f, 0.0f, 0.f};
+    const Vector forwardDirection{forward()};
+    const Vector rightDirection{right()};
+
+    return forwardDirection.Cross(rightDirection);
+}
+
+void Camera::move(const Vector& target, const Vector& direction, float deltaTime) {
+    Vector dir{direction};
+
+    const float length{dir.length()};
+
+    if (length <= 1e-6f) {
+        return;
+    }
+
+    dir /= length;
+
+    position = target + dir * (moveSpeed * deltaTime);
 }
 
 } // namespace Rendering

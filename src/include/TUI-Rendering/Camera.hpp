@@ -31,6 +31,8 @@ public:
     Vector right() const;
     Vector up() const;
 
+    void move(const Vector& target, const Vector& direction, float deltaTime);
+
 private:
     Vector position{0.0f, 0.0f, -250.0f, 1.f};
     Vector rotation{};
