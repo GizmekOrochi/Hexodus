@@ -176,6 +176,8 @@ int main() {
         input.activate();
         inputActive = true;
 
+        input.setMouseSensitivity(0.25f);
+
         using Clock = std::chrono::steady_clock;
 
         auto previousTime{Clock::now()};
@@ -184,11 +186,7 @@ int main() {
         while (running) {
             const auto currentTime{Clock::now()};
 
-            float deltaTime{
-                std::chrono::duration<float>(
-                    currentTime - previousTime
-                ).count()
-            };
+            float deltaTime{std::chrono::duration<float>(currentTime - previousTime).count()};
 
             previousTime = currentTime;
 
@@ -196,16 +194,40 @@ int main() {
 
             input.pollEvents();
 
-            if (input.quitRequested() ||
-                input.pressed(TUI::Scancode::Escape)) {
+            if (input.quitRequested() ||input.pressed(TUI::Scancode::Escape)) {
                 running = false;
                 continue;
             }
 
-            const float movementDelta{deltaTime};
-            constexpr float rotationMultiplier{3.0f};
+            /*
+             * Dans un terminal, il n'existe pas de vrai événement
+             * "touche maintenue". La répétition vient du système.
+             * Le multiplicateur permet de rendre chaque événement visible.
+             */
+            constexpr float movementMultiplier{0.0f};
+            constexpr float keyboardRotationMultiplier{3.0f};
+            constexpr float mouseRotationMultiplier{0.35f};
 
-            const float rotationDelta{deltaTime * rotationMultiplier};
+            const float movementDelta{
+                std::max(deltaTime, 1.0f / 60.0f) *
+                movementMultiplier
+            };
+
+            const float keyboardRotationDelta{
+                std::max(deltaTime, 1.0f / 60.0f) *
+                keyboardRotationMultiplier
+            };
+
+            const float mouseYaw{
+                static_cast<float>(input.mouseDeltaX()) *
+                mouseRotationMultiplier
+            };
+
+            const float mousePitch{
+                static_cast<float>(input.mouseDeltaY()) *
+                mouseRotationMultiplier
+            };
+
 
             if (input.down(TUI::Scancode::KeyW)) {
                 camera.moveForward(movementDelta);
@@ -232,19 +254,29 @@ int main() {
             }
 
             if (input.down(TUI::Scancode::ArrowLeft)) {
-                camera.rotate(-rotationDelta, 0.0f);
+                camera.rotate(-keyboardRotationDelta, 0.0f);
             }
 
             if (input.down(TUI::Scancode::ArrowRight)) {
-                camera.rotate(rotationDelta, 0.0f);
+                camera.rotate(keyboardRotationDelta, 0.0f);
             }
 
             if (input.down(TUI::Scancode::ArrowUp)) {
-                camera.rotate(0.0f, -rotationDelta);
+                camera.rotate(0.0f, -keyboardRotationDelta);
             }
 
             if (input.down(TUI::Scancode::ArrowDown)) {
-                camera.rotate(0.0f, rotationDelta);
+                camera.rotate(0.0f, keyboardRotationDelta);
+            }
+
+            if (
+                mouseYaw != 0.0f ||
+                mousePitch != 0.0f
+            ) {
+                camera.rotate(
+                    mouseYaw,
+                    mousePitch
+                );
             }
 
             renderer.drawBuffer();

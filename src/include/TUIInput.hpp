@@ -153,6 +153,16 @@ enum class Scancode : std::uint16_t {
     Count
 };
 
+enum class MouseButton : std::uint8_t {
+    Left = 0,
+    Right,
+    Middle,
+    Back,
+    Forward,
+
+    Count
+};
+
 class TUIInput {
 public:
     TUIInput();
@@ -177,6 +187,42 @@ public:
     [[nodiscard]] bool down(Scancode scancode) const noexcept;
 
     [[nodiscard]] std::size_t keyboardCount() const noexcept;
+    [[nodiscard]] std::size_t mouseCount() const noexcept;
+
+    void setMouseBounds(int width, int height) noexcept;
+    void setMousePosition(int x, int y) noexcept;
+    void setMouseSensitivity(float sensitivity) noexcept;
+
+    [[nodiscard]] float mouseSensitivity() const noexcept;
+
+    [[nodiscard]] int mouseX() const noexcept;
+    [[nodiscard]] int mouseY() const noexcept;
+    [[nodiscard]] int mouseDeltaX() const noexcept;
+    [[nodiscard]] int mouseDeltaY() const noexcept;
+    [[nodiscard]] int mouseWheelDelta() const noexcept;
+
+    [[nodiscard]] bool mousePressed(MouseButton button) const noexcept;
+    [[nodiscard]] bool mouseReleased(MouseButton button) const noexcept;
+    [[nodiscard]] bool mouseDown(MouseButton button) const noexcept;
+
+    [[nodiscard]] bool mouseLeftDown() const noexcept;
+    [[nodiscard]] bool mouseRightDown() const noexcept;
+    [[nodiscard]] bool mouseMiddleDown() const noexcept;
+
+    [[nodiscard]] bool mouseLeftPressed() const noexcept;
+    [[nodiscard]] bool mouseRightPressed() const noexcept;
+    [[nodiscard]] bool mouseMiddlePressed() const noexcept;
+
+    [[nodiscard]] bool mouseLeftReleased() const noexcept;
+    [[nodiscard]] bool mouseRightReleased() const noexcept;
+    [[nodiscard]] bool mouseMiddleReleased() const noexcept;
+
+    [[nodiscard]] bool mouseBackDown() const noexcept;
+    [[nodiscard]] bool mouseForwardDown() const noexcept;
+    [[nodiscard]] bool mouseBackPressed() const noexcept;
+    [[nodiscard]] bool mouseForwardPressed() const noexcept;
+    [[nodiscard]] bool mouseBackReleased() const noexcept;
+    [[nodiscard]] bool mouseForwardReleased() const noexcept;
 
 private:
     static constexpr std::size_t scancodeCount_{
@@ -190,6 +236,43 @@ private:
         bool synchronized;
     };
 
+    struct MouseDevice {
+        int fileDescriptor;
+        std::string path;
+        std::string name;
+        bool synchronized;
+    };
+
+    struct MouseState {
+        int x;
+        int y;
+        int deltaX;
+        int deltaY;
+        int wheelDelta;
+
+        int width;
+        int height;
+
+        float sensitivity;
+        float residualX;
+        float residualY;
+
+        std::array<
+            bool,
+            static_cast<std::size_t>(MouseButton::Count)
+        > down;
+
+        std::array<
+            bool,
+            static_cast<std::size_t>(MouseButton::Count)
+        > pressed;
+
+        std::array<
+            bool,
+            static_cast<std::size_t>(MouseButton::Count)
+        > released;
+    };
+
     bool active_;
     bool quitRequested_;
     bool terminalConfigured_;
@@ -197,6 +280,9 @@ private:
     termios originalTerminalSettings_;
 
     std::vector<KeyboardDevice> keyboards_;
+    std::vector<MouseDevice> mice_;
+
+    MouseState mouse_;
 
     std::array<bool, scancodeCount_> pressed_;
     std::array<bool, scancodeCount_> repeated_;
@@ -207,18 +293,26 @@ private:
     void restoreTerminal() noexcept;
     void drainTerminalInput() noexcept;
 
-    void discoverKeyboards();
-    void closeKeyboards() noexcept;
+    void discoverDevices();
+    void closeDevices() noexcept;
 
     void clearFrameStates() noexcept;
     void readKeyboardEvents(KeyboardDevice& keyboard);
+    void readMouseEvents(MouseDevice& mouse);
     void resynchronizeKeyboard(KeyboardDevice& keyboard);
+    void resynchronizeMouse(MouseDevice& mouse);
 
     void registerEvent(std::uint16_t linuxCode, std::int32_t value) noexcept;
+    void registerMouseButton(std::uint16_t linuxCode, std::int32_t value) noexcept;
+    void clampMousePosition() noexcept;
 
     [[nodiscard]] static bool isKeyboard(int fileDescriptor) noexcept;
-    [[nodiscard]] static std::string keyboardName(int fileDescriptor);
+    [[nodiscard]] static bool isMouse(int fileDescriptor) noexcept;
+    [[nodiscard]] static std::string deviceName(int fileDescriptor);
     [[nodiscard]] static Scancode fromLinuxCode(std::uint16_t linuxCode) noexcept;
+    [[nodiscard]] static MouseButton fromLinuxMouseButton(
+        std::uint16_t linuxCode
+    ) noexcept;
 };
 
 } // namespace TUI

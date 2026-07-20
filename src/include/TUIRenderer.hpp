@@ -15,6 +15,17 @@
 
 namespace TUI {
 
+enum class TerminalMode {
+    Automatic,
+    UnicodeQuad,
+    LinuxConsole
+};
+
+enum class PixelDrawingMode {
+    Normal,
+    Contrasted
+};
+
 class TUIRenderer {
 private:
     struct EncodedCell {
@@ -22,13 +33,26 @@ private:
         RGBPanel foreground{};
         RGBPanel background{};
 
-        [[nodiscard]] bool operator==(const EncodedCell& other) const noexcept;
-        [[nodiscard]] bool operator!=(const EncodedCell& other) const noexcept {
+        [[nodiscard]] bool operator==(
+            const EncodedCell& other
+        ) const noexcept;
+
+        [[nodiscard]] bool operator!=(
+            const EncodedCell& other
+        ) const noexcept {
             return !(*this == other);
         }
     };
 
+    struct PixelCommand {
+        int x;
+        int y;
+        Pixel color;
+        PixelDrawingMode mode;
+    };
+
     std::vector<Pixel> framebuffer_;
+    std::vector<PixelCommand> pixelCommands_;
     std::vector<EncodedCell> currentCells_;
     std::vector<EncodedCell> previousCells_;
 
@@ -36,6 +60,9 @@ private:
 
     std::vector<Scene*> scenes_;
     Scene* activeScene_;
+
+    TerminalMode requestedTerminalMode_;
+    TerminalMode activeTerminalMode_;
 
     int previousTerminalWidth_{};
     int previousTerminalHeight_{};
@@ -47,17 +74,69 @@ private:
 
     void renderScene(std::size_t index);
     void renderScenes();
-    void encodeFramebuffer(int terminalWidth, int terminalHeight);
+    void applyPixelCommands();
 
-    void drawFullFrame(int terminalWidth, int terminalHeight);
-    void drawDifferentialFrame(int terminalWidth, int terminalHeight);
-    void appendCell(const EncodedCell& cell, RGBPanel& lastForeground, RGBPanel& lastBackground, bool& hasLastColors);
+    void encodeFramebuffer(
+        int terminalWidth,
+        int terminalHeight
+    );
 
-    [[nodiscard]] EncodedCell encodeQuad(const Pixel& topLeft, const Pixel& topRight, const Pixel& bottomLeft, const Pixel& bottomRight) const;
-    [[nodiscard]] static std::string_view glyphForMask(std::uint8_t mask);
-    [[nodiscard]] static int colorDistanceSquared(const Pixel& lhs, const Pixel& rhs);
-    [[nodiscard]] static RGBPanel toRGBPanel(const Pixel& pixel);
-    [[nodiscard]] static bool sameColor(const RGBPanel& lhs, const RGBPanel& rhs) noexcept;
+    void encodeUnicodeFramebuffer(
+        int terminalWidth,
+        int terminalHeight
+    );
+
+    void encodeLinuxConsoleFramebuffer(
+        int terminalWidth,
+        int terminalHeight
+    );
+
+    void drawFullFrame(
+        int terminalWidth,
+        int terminalHeight
+    );
+
+    void drawDifferentialFrame(
+        int terminalWidth,
+        int terminalHeight
+    );
+
+    void appendCell(
+        const EncodedCell& cell,
+        RGBPanel& lastForeground,
+        RGBPanel& lastBackground,
+        bool& hasLastColors
+    );
+
+    [[nodiscard]] int horizontalPixelsPerCell() const noexcept;
+    [[nodiscard]] int verticalPixelsPerCell() const noexcept;
+
+    [[nodiscard]] static TerminalMode detectTerminalMode() noexcept;
+
+    [[nodiscard]] EncodedCell encodeQuad(
+        const Pixel& topLeft,
+        const Pixel& topRight,
+        const Pixel& bottomLeft,
+        const Pixel& bottomRight
+    ) const;
+
+    [[nodiscard]] static std::string_view glyphForMask(
+        std::uint8_t mask
+    );
+
+    [[nodiscard]] static int colorDistanceSquared(
+        const Pixel& lhs,
+        const Pixel& rhs
+    );
+
+    [[nodiscard]] static RGBPanel toRGBPanel(
+        const Pixel& pixel
+    );
+
+    [[nodiscard]] static bool sameColor(
+        const RGBPanel& lhs,
+        const RGBPanel& rhs
+    ) noexcept;
 
 public:
     TUIRenderer();
@@ -65,7 +144,15 @@ public:
     void setActiveScene(Scene* scene);
     void InitScene(Scene* scene);
 
+    void drawPixel(int x, int y, Pixel color);
+    void drawContrastedPixel(int x, int y);
     void drawBuffer();
+
+    [[nodiscard]] int logicalWidth();
+    [[nodiscard]] int logicalHeight();
+
+    void setTerminalMode(TerminalMode mode);
+    [[nodiscard]] TerminalMode terminalMode() const noexcept;
 
     void setFullRedrawThreshold(float threshold);
     void invalidate();

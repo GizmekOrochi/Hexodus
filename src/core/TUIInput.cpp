@@ -6,6 +6,7 @@
 #include <cstring>
 #include <fcntl.h>
 #include <filesystem>
+#include <cmath>
 #include <linux/input.h>
 #include <poll.h>
 #include <stdexcept>
@@ -40,6 +41,22 @@ TUIInput::TUIInput()
       terminalConfigured_{false},
       originalTerminalSettings_{},
       keyboards_{},
+      mice_{},
+      mouse_{
+          0,
+          0,
+          0,
+          0,
+          0,
+          1,
+          1,
+          1.0f,
+          0.0f,
+          0.0f,
+          {},
+          {},
+          {}
+      },
       pressed_{},
       repeated_{},
       released_{},
@@ -59,21 +76,29 @@ void TUIInput::activate() {
     released_.fill(false);
     down_.fill(false);
 
+    mouse_.deltaX = 0;
+    mouse_.deltaY = 0;
+    mouse_.wheelDelta = 0;
+
+    mouse_.down.fill(false);
+    mouse_.pressed.fill(false);
+    mouse_.released.fill(false);
+
     quitRequested_ = false;
 
     try {
         configureTerminal();
-        discoverKeyboards();
+        discoverDevices();
         active_ = true;
     } catch (...) {
-        closeKeyboards();
+        closeDevices();
         restoreTerminal();
         throw;
     }
 }
 
 void TUIInput::restore() noexcept {
-    closeKeyboards();
+    closeDevices();
     restoreTerminal();
 
     pressed_.fill(false);
@@ -92,16 +117,55 @@ void TUIInput::pollEvents() {
     clearFrameStates();
     drainTerminalInput();
 
-    std::vector<pollfd> descriptors{};
-    descriptors.reserve(keyboards_.size());
+    struct PolledDevice {
+        int fileDescriptor;
+        bool mouse;
+        std::size_t index;
+    };
 
-    for (const KeyboardDevice& keyboard : keyboards_) {
-        descriptors.push_back(pollfd{keyboard.fileDescriptor, POLLIN, 0});
+    std::vector<PolledDevice> devices{};
+    devices.reserve(keyboards_.size() + mice_.size());
+
+    for (std::size_t index{}; index < keyboards_.size(); ++index) {
+        devices.push_back(
+            PolledDevice{
+                keyboards_[index].fileDescriptor,
+                false,
+                index
+            }
+        );
+    }
+
+    for (std::size_t index{}; index < mice_.size(); ++index) {
+        devices.push_back(
+            PolledDevice{
+                mice_[index].fileDescriptor,
+                true,
+                index
+            }
+        );
+    }
+
+    std::vector<pollfd> descriptors{};
+    descriptors.reserve(devices.size());
+
+    for (const PolledDevice& device : devices) {
+        descriptors.push_back(
+            pollfd{
+                device.fileDescriptor,
+                POLLIN,
+                0
+            }
+        );
     }
 
     while (true) {
         const int readyCount{
-            ::poll(descriptors.data(), static_cast<nfds_t>(descriptors.size()), 0)
+            ::poll(
+                descriptors.data(),
+                static_cast<nfds_t>(descriptors.size()),
+                0
+            )
         };
 
         if (readyCount < 0) {
@@ -125,7 +189,14 @@ void TUIInput::pollEvents() {
                 continue;
             }
 
-            readKeyboardEvents(keyboards_[index]);
+            const PolledDevice& device{devices[index]};
+
+            if (device.mouse) {
+                readMouseEvents(mice_[device.index]);
+            } else {
+                readKeyboardEvents(keyboards_[device.index]);
+            }
+
             eventRead = true;
         }
 
@@ -138,8 +209,11 @@ void TUIInput::pollEvents() {
         }
     }
 
+    clampMousePosition();
+
     const bool controlDown{
-        down(Scancode::LeftControl) || down(Scancode::RightControl)
+        down(Scancode::LeftControl) ||
+        down(Scancode::RightControl)
     };
 
     if (controlDown && pressed(Scancode::KeyC)) {
@@ -185,6 +259,151 @@ bool TUIInput::down(Scancode scancode) const noexcept {
 
 std::size_t TUIInput::keyboardCount() const noexcept {
     return keyboards_.size();
+}
+
+std::size_t TUIInput::mouseCount() const noexcept {
+    return mice_.size();
+}
+
+void TUIInput::setMouseBounds(int width, int height) noexcept {
+    mouse_.width = std::max(width, 1);
+    mouse_.height = std::max(height, 1);
+    clampMousePosition();
+}
+
+void TUIInput::setMousePosition(int x, int y) noexcept {
+    mouse_.x = x;
+    mouse_.y = y;
+    mouse_.residualX = 0.0f;
+    mouse_.residualY = 0.0f;
+    clampMousePosition();
+}
+
+void TUIInput::setMouseSensitivity(
+    float sensitivity
+) noexcept {
+    mouse_.sensitivity = std::clamp(
+        sensitivity,
+        0.0f,
+        10.0f
+    );
+}
+
+float TUIInput::mouseSensitivity() const noexcept {
+    return mouse_.sensitivity;
+}
+
+int TUIInput::mouseX() const noexcept {
+    return mouse_.x;
+}
+
+int TUIInput::mouseY() const noexcept {
+    return mouse_.y;
+}
+
+int TUIInput::mouseDeltaX() const noexcept {
+    return mouse_.deltaX;
+}
+
+int TUIInput::mouseDeltaY() const noexcept {
+    return mouse_.deltaY;
+}
+
+int TUIInput::mouseWheelDelta() const noexcept {
+    return mouse_.wheelDelta;
+}
+
+bool TUIInput::mousePressed(
+    MouseButton button
+) const noexcept {
+    const std::size_t index{
+        static_cast<std::size_t>(button)
+    };
+
+    return index < mouse_.pressed.size() &&
+           mouse_.pressed[index];
+}
+
+bool TUIInput::mouseReleased(
+    MouseButton button
+) const noexcept {
+    const std::size_t index{
+        static_cast<std::size_t>(button)
+    };
+
+    return index < mouse_.released.size() &&
+           mouse_.released[index];
+}
+
+bool TUIInput::mouseDown(
+    MouseButton button
+) const noexcept {
+    const std::size_t index{
+        static_cast<std::size_t>(button)
+    };
+
+    return index < mouse_.down.size() &&
+           mouse_.down[index];
+}
+
+bool TUIInput::mouseLeftDown() const noexcept {
+    return mouseDown(MouseButton::Left);
+}
+
+bool TUIInput::mouseRightDown() const noexcept {
+    return mouseDown(MouseButton::Right);
+}
+
+bool TUIInput::mouseMiddleDown() const noexcept {
+    return mouseDown(MouseButton::Middle);
+}
+
+bool TUIInput::mouseLeftPressed() const noexcept {
+    return mousePressed(MouseButton::Left);
+}
+
+bool TUIInput::mouseRightPressed() const noexcept {
+    return mousePressed(MouseButton::Right);
+}
+
+bool TUIInput::mouseMiddlePressed() const noexcept {
+    return mousePressed(MouseButton::Middle);
+}
+
+bool TUIInput::mouseLeftReleased() const noexcept {
+    return mouseReleased(MouseButton::Left);
+}
+
+bool TUIInput::mouseRightReleased() const noexcept {
+    return mouseReleased(MouseButton::Right);
+}
+
+bool TUIInput::mouseMiddleReleased() const noexcept {
+    return mouseReleased(MouseButton::Middle);
+}
+
+bool TUIInput::mouseBackDown() const noexcept {
+    return mouseDown(MouseButton::Back);
+}
+
+bool TUIInput::mouseForwardDown() const noexcept {
+    return mouseDown(MouseButton::Forward);
+}
+
+bool TUIInput::mouseBackPressed() const noexcept {
+    return mousePressed(MouseButton::Back);
+}
+
+bool TUIInput::mouseForwardPressed() const noexcept {
+    return mousePressed(MouseButton::Forward);
+}
+
+bool TUIInput::mouseBackReleased() const noexcept {
+    return mouseReleased(MouseButton::Back);
+}
+
+bool TUIInput::mouseForwardReleased() const noexcept {
+    return mouseReleased(MouseButton::Forward);
 }
 
 void TUIInput::configureTerminal() {
@@ -260,7 +479,7 @@ void TUIInput::drainTerminalInput() noexcept {
     }
 }
 
-void TUIInput::discoverKeyboards() {
+void TUIInput::discoverDevices() {
     namespace fs = std::filesystem;
 
     const fs::path inputDirectory{"/dev/input"};
@@ -268,7 +487,7 @@ void TUIInput::discoverKeyboards() {
 
     if (!fs::exists(inputDirectory, error)) {
         throw std::runtime_error(
-            "TUIInput::discoverKeyboards(): /dev/input does not exist"
+            "TUIInput::discoverDevices(): /dev/input does not exist"
         );
     }
 
@@ -280,15 +499,19 @@ void TUIInput::discoverKeyboards() {
             break;
         }
 
-        if (!entry.is_character_file(error)) {
-            continue;
-        }
-
-        const std::string filename{entry.path().filename().string()};
+        const std::string filename{
+            entry.path().filename().string()
+        };
 
         if (filename.rfind("event", 0U) == 0U) {
             candidates.push_back(entry.path());
         }
+    }
+
+    if (error) {
+        throw std::runtime_error(
+            "TUIInput::discoverDevices(): cannot enumerate /dev/input"
+        );
     }
 
     std::sort(candidates.begin(), candidates.end());
@@ -296,11 +519,14 @@ void TUIInput::discoverKeyboards() {
     bool permissionDenied{false};
 
     for (const fs::path& path : candidates) {
-        const int fileDescriptor{
-            ::open(path.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC)
+        const int probeDescriptor{
+            ::open(
+                path.c_str(),
+                O_RDONLY | O_NONBLOCK | O_CLOEXEC
+            )
         };
 
-        if (fileDescriptor == -1) {
+        if (probeDescriptor == -1) {
             if (errno == EACCES || errno == EPERM) {
                 permissionDenied = true;
             }
@@ -308,56 +534,105 @@ void TUIInput::discoverKeyboards() {
             continue;
         }
 
-        if (!isKeyboard(fileDescriptor)) {
-            ::close(fileDescriptor);
-            continue;
+        const bool keyboard{isKeyboard(probeDescriptor)};
+        const bool mouse{isMouse(probeDescriptor)};
+        const std::string name{deviceName(probeDescriptor)};
+
+        ::close(probeDescriptor);
+
+        if (keyboard) {
+            const int fileDescriptor{
+                ::open(
+                    path.c_str(),
+                    O_RDONLY | O_NONBLOCK | O_CLOEXEC
+                )
+            };
+
+            if (fileDescriptor != -1) {
+                keyboards_.push_back(
+                    KeyboardDevice{
+                        fileDescriptor,
+                        path.string(),
+                        name,
+                        true
+                    }
+                );
+            }
         }
 
-        keyboards_.push_back(
-            KeyboardDevice{
-                fileDescriptor,
-                path.string(),
-                keyboardName(fileDescriptor),
-                true
+        if (mouse) {
+            const int fileDescriptor{
+                ::open(
+                    path.c_str(),
+                    O_RDONLY | O_NONBLOCK | O_CLOEXEC
+                )
+            };
+
+            if (fileDescriptor != -1) {
+                mice_.push_back(
+                    MouseDevice{
+                        fileDescriptor,
+                        path.string(),
+                        name,
+                        true
+                    }
+                );
             }
-        );
+        }
     }
 
     if (keyboards_.empty()) {
         if (permissionDenied) {
             throw std::runtime_error(
-                "TUIInput::discoverKeyboards(): no readable keyboard found; "
-                "grant read access to /dev/input/event*"
+                "TUIInput::discoverDevices(): no readable keyboard found; "
+                "run Hexodus with sufficient access to /dev/input/event*"
             );
         }
 
         throw std::runtime_error(
-            "TUIInput::discoverKeyboards(): no evdev keyboard found"
+            "TUIInput::discoverDevices(): no evdev keyboard found"
         );
     }
 
     for (KeyboardDevice& keyboard : keyboards_) {
         resynchronizeKeyboard(keyboard);
     }
+
+    for (MouseDevice& mouse : mice_) {
+        resynchronizeMouse(mouse);
+    }
 }
 
-void TUIInput::closeKeyboards() noexcept {
+void TUIInput::closeDevices() noexcept {
     for (KeyboardDevice& keyboard : keyboards_) {
-        if (keyboard.fileDescriptor == -1) {
-            continue;
+        if (keyboard.fileDescriptor != -1) {
+            ::close(keyboard.fileDescriptor);
+            keyboard.fileDescriptor = -1;
         }
+    }
 
-        ::close(keyboard.fileDescriptor);
-        keyboard.fileDescriptor = -1;
+    for (MouseDevice& mouse : mice_) {
+        if (mouse.fileDescriptor != -1) {
+            ::close(mouse.fileDescriptor);
+            mouse.fileDescriptor = -1;
+        }
     }
 
     keyboards_.clear();
+    mice_.clear();
 }
 
 void TUIInput::clearFrameStates() noexcept {
     pressed_.fill(false);
     repeated_.fill(false);
     released_.fill(false);
+
+    mouse_.deltaX = 0;
+    mouse_.deltaY = 0;
+    mouse_.wheelDelta = 0;
+
+    mouse_.pressed.fill(false);
+    mouse_.released.fill(false);
 }
 
 void TUIInput::readKeyboardEvents(KeyboardDevice& keyboard) {
@@ -429,6 +704,132 @@ void TUIInput::readKeyboardEvents(KeyboardDevice& keyboard) {
     }
 }
 
+void TUIInput::readMouseEvents(MouseDevice& mouse) {
+    std::array<input_event, 64> events{};
+
+    while (true) {
+        const ssize_t byteCount{
+            ::read(
+                mouse.fileDescriptor,
+                events.data(),
+                sizeof(events)
+            )
+        };
+
+        if (byteCount < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                return;
+            }
+
+            throw std::runtime_error(
+                makeSystemError(
+                    "TUIInput::readMouseEvents(): read failed for " +
+                    mouse.path
+                )
+            );
+        }
+
+        if (byteCount == 0) {
+            return;
+        }
+
+        if (
+            static_cast<std::size_t>(byteCount) %
+            sizeof(input_event) != 0U
+        ) {
+            throw std::runtime_error(
+                "TUIInput::readMouseEvents(): incomplete evdev event"
+            );
+        }
+
+        const std::size_t eventCount{
+            static_cast<std::size_t>(byteCount) /
+            sizeof(input_event)
+        };
+
+        for (std::size_t index{}; index < eventCount; ++index) {
+            const input_event& event{events[index]};
+
+            if (event.type == EV_SYN) {
+                if (event.code == SYN_DROPPED) {
+                    mouse.synchronized = false;
+                } else if (
+                    event.code == SYN_REPORT &&
+                    !mouse.synchronized
+                ) {
+                    resynchronizeMouse(mouse);
+                    mouse.synchronized = true;
+                }
+
+                continue;
+            }
+
+            if (!mouse.synchronized) {
+                continue;
+            }
+
+            if (event.type == EV_REL) {
+                switch (event.code) {
+                    case REL_X: {
+                        mouse_.residualX +=
+                            static_cast<float>(event.value) *
+                            mouse_.sensitivity;
+
+                        const int movement{
+                            static_cast<int>(
+                                std::trunc(mouse_.residualX)
+                            )
+                        };
+
+                        mouse_.residualX -=
+                            static_cast<float>(movement);
+
+                        mouse_.deltaX += movement;
+                        mouse_.x += movement;
+                        break;
+                    }
+
+                    case REL_Y: {
+                        mouse_.residualY +=
+                            static_cast<float>(event.value) *
+                            mouse_.sensitivity;
+
+                        const int movement{
+                            static_cast<int>(
+                                std::trunc(mouse_.residualY)
+                            )
+                        };
+
+                        mouse_.residualY -=
+                            static_cast<float>(movement);
+
+                        mouse_.deltaY += movement;
+                        mouse_.y += movement;
+                        break;
+                    }
+
+                    case REL_WHEEL:
+                        mouse_.wheelDelta += event.value;
+                        break;
+
+                    default:
+                        break;
+                }
+            } else if (event.type == EV_KEY) {
+                registerMouseButton(event.code, event.value);
+            }
+        }
+
+        if (static_cast<std::size_t>(byteCount) < sizeof(events)) {
+            return;
+        }
+    }
+}
+
 void TUIInput::resynchronizeKeyboard(KeyboardDevice& keyboard) {
     std::array<unsigned long, wordCountForBit(KEY_MAX)> keyState{};
 
@@ -457,6 +858,107 @@ void TUIInput::resynchronizeKeyboard(KeyboardDevice& keyboard) {
             down_[index] = false;
             released_[index] = true;
         }
+    }
+}
+
+void TUIInput::resynchronizeMouse(MouseDevice& mouse) {
+    std::array<unsigned long, wordCountForBit(KEY_MAX)> keyState{};
+
+    if (::ioctl(
+        mouse.fileDescriptor,
+        EVIOCGKEY(sizeof(keyState)),
+        keyState.data()
+    ) == -1) {
+        return;
+    }
+
+    const std::array<std::uint16_t, 5> linuxButtons{
+        BTN_LEFT,
+        BTN_RIGHT,
+        BTN_MIDDLE,
+        BTN_SIDE,
+        BTN_EXTRA
+    };
+
+    for (const std::uint16_t linuxButton : linuxButtons) {
+        const MouseButton button{
+            fromLinuxMouseButton(linuxButton)
+        };
+
+        if (button == MouseButton::Count) {
+            continue;
+        }
+
+        mouse_.down[
+            static_cast<std::size_t>(button)
+        ] = bitIsSet(
+            keyState.data(),
+            linuxButton
+        );
+    }
+}
+
+void TUIInput::registerMouseButton(
+    std::uint16_t linuxCode,
+    std::int32_t value
+) noexcept {
+    const MouseButton button{
+        fromLinuxMouseButton(linuxCode)
+    };
+
+    if (button == MouseButton::Count) {
+        return;
+    }
+
+    const std::size_t index{
+        static_cast<std::size_t>(button)
+    };
+
+    if (value == 0) {
+        if (mouse_.down[index]) {
+            mouse_.released[index] = true;
+        }
+
+        mouse_.down[index] = false;
+    } else if (value == 1) {
+        if (!mouse_.down[index]) {
+            mouse_.pressed[index] = true;
+        }
+
+        mouse_.down[index] = true;
+    }
+}
+
+void TUIInput::clampMousePosition() noexcept {
+    const int maximumX{
+        std::max(mouse_.width - 1, 0)
+    };
+
+    const int maximumY{
+        std::max(mouse_.height - 1, 0)
+    };
+
+    const int previousX{mouse_.x};
+    const int previousY{mouse_.y};
+
+    mouse_.x = std::clamp(
+        mouse_.x,
+        0,
+        maximumX
+    );
+
+    mouse_.y = std::clamp(
+        mouse_.y,
+        0,
+        maximumY
+    );
+
+    if (mouse_.x != previousX) {
+        mouse_.residualX = 0.0f;
+    }
+
+    if (mouse_.y != previousY) {
+        mouse_.residualY = 0.0f;
     }
 }
 
@@ -530,7 +1032,51 @@ bool TUIInput::isKeyboard(int fileDescriptor) noexcept {
            bitIsSet(keyBits.data(), KEY_SPACE);
 }
 
-std::string TUIInput::keyboardName(int fileDescriptor) {
+bool TUIInput::isMouse(int fileDescriptor) noexcept {
+    std::array<unsigned long, wordCountForBit(EV_MAX)> eventBits{};
+
+    if (::ioctl(
+        fileDescriptor,
+        EVIOCGBIT(0, sizeof(eventBits)),
+        eventBits.data()
+    ) == -1) {
+        return false;
+    }
+
+    if (
+        !bitIsSet(eventBits.data(), EV_KEY) ||
+        !bitIsSet(eventBits.data(), EV_REL)
+    ) {
+        return false;
+    }
+
+    std::array<unsigned long, wordCountForBit(REL_MAX)> relativeBits{};
+
+    if (::ioctl(
+        fileDescriptor,
+        EVIOCGBIT(EV_REL, sizeof(relativeBits)),
+        relativeBits.data()
+    ) == -1) {
+        return false;
+    }
+
+    std::array<unsigned long, wordCountForBit(KEY_MAX)> keyBits{};
+
+    if (::ioctl(
+        fileDescriptor,
+        EVIOCGBIT(EV_KEY, sizeof(keyBits)),
+        keyBits.data()
+    ) == -1) {
+        return false;
+    }
+
+    return bitIsSet(relativeBits.data(), REL_X) &&
+           bitIsSet(relativeBits.data(), REL_Y) &&
+           bitIsSet(keyBits.data(), BTN_LEFT);
+}
+
+
+std::string TUIInput::deviceName(int fileDescriptor) {
     std::array<char, 256> name{};
 
     if (::ioctl(
@@ -542,6 +1088,32 @@ std::string TUIInput::keyboardName(int fileDescriptor) {
     }
 
     return name.data();
+}
+
+MouseButton TUIInput::fromLinuxMouseButton(
+    std::uint16_t linuxCode
+) noexcept {
+    switch (linuxCode) {
+        case BTN_LEFT:
+            return MouseButton::Left;
+
+        case BTN_RIGHT:
+            return MouseButton::Right;
+
+        case BTN_MIDDLE:
+            return MouseButton::Middle;
+
+        case BTN_SIDE:
+        case BTN_BACK:
+            return MouseButton::Back;
+
+        case BTN_EXTRA:
+        case BTN_FORWARD:
+            return MouseButton::Forward;
+
+        default:
+            return MouseButton::Count;
+    }
 }
 
 Scancode TUIInput::fromLinuxCode(std::uint16_t linuxCode) noexcept {
