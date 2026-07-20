@@ -1,158 +1,258 @@
 #include "../include/TUIInput.hpp"
 
+#include <algorithm>
+#include <array>
 #include <cerrno>
-#include <charconv>
+#include <cstring>
+#include <fcntl.h>
+#include <filesystem>
+#include <linux/input.h>
 #include <poll.h>
 #include <stdexcept>
-#include <string_view>
+#include <string>
+#include <sys/ioctl.h>
 #include <unistd.h>
+#include <vector>
 
 namespace TUI {
+
 namespace {
 
-bool parseInteger(std::string_view text, int& value) {
-    if (text.empty()) {
-        return false;
-    }
+constexpr std::size_t bitsPerWord{sizeof(unsigned long) * 8U};
 
-    const char* const begin{text.data()};
-    const char* const end{begin + text.size()};
-    const auto result{std::from_chars(begin, end, value)};
+constexpr std::size_t wordCountForBit(std::size_t maximumBit) noexcept {
+    return (maximumBit + bitsPerWord) / bitsPerWord;
+}
 
-    return result.ec == std::errc{} && result.ptr == end;
+bool bitIsSet(const unsigned long* bits, std::size_t bit) noexcept {
+    return (bits[bit / bitsPerWord] & (1UL << (bit % bitsPerWord))) != 0UL;
+}
+
+std::string makeSystemError(const std::string& message) {
+    return message + ": " + std::strerror(errno);
 }
 
 } // namespace
+
+TUIInput::TUIInput()
+    : active_{false},
+      quitRequested_{false},
+      terminalConfigured_{false},
+      originalTerminalSettings_{},
+      keyboards_{},
+      pressed_{},
+      repeated_{},
+      released_{},
+      down_{} {}
 
 TUIInput::~TUIInput() {
     restore();
 }
 
-void TUIInput::activate() { if (active_) { return; }
+void TUIInput::activate() {
+    if (active_) {
+        return;
+    }
 
+    pressed_.fill(false);
+    repeated_.fill(false);
+    released_.fill(false);
+    down_.fill(false);
+
+    quitRequested_ = false;
+
+    try {
+        configureTerminal();
+        discoverKeyboards();
+        active_ = true;
+    } catch (...) {
+        closeKeyboards();
+        restoreTerminal();
+        throw;
+    }
+}
+
+void TUIInput::restore() noexcept {
+    closeKeyboards();
+    restoreTerminal();
+
+    pressed_.fill(false);
+    repeated_.fill(false);
+    released_.fill(false);
+    down_.fill(false);
+
+    active_ = false;
+}
+
+void TUIInput::pollEvents() {
+    if (!active_) {
+        throw std::logic_error("TUIInput::pollEvents(): input is not active");
+    }
+
+    clearFrameStates();
+    drainTerminalInput();
+
+    std::vector<pollfd> descriptors{};
+    descriptors.reserve(keyboards_.size());
+
+    for (const KeyboardDevice& keyboard : keyboards_) {
+        descriptors.push_back(pollfd{keyboard.fileDescriptor, POLLIN, 0});
+    }
+
+    while (true) {
+        const int readyCount{
+            ::poll(descriptors.data(), static_cast<nfds_t>(descriptors.size()), 0)
+        };
+
+        if (readyCount < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+
+            throw std::runtime_error(
+                makeSystemError("TUIInput::pollEvents(): poll failed")
+            );
+        }
+
+        if (readyCount == 0) {
+            break;
+        }
+
+        bool eventRead{false};
+
+        for (std::size_t index{}; index < descriptors.size(); ++index) {
+            if ((descriptors[index].revents & POLLIN) == 0) {
+                continue;
+            }
+
+            readKeyboardEvents(keyboards_[index]);
+            eventRead = true;
+        }
+
+        if (!eventRead) {
+            break;
+        }
+
+        for (pollfd& descriptor : descriptors) {
+            descriptor.revents = 0;
+        }
+    }
+
+    const bool controlDown{
+        down(Scancode::LeftControl) || down(Scancode::RightControl)
+    };
+
+    if (controlDown && pressed(Scancode::KeyC)) {
+        quitRequested_ = true;
+    }
+}
+
+bool TUIInput::isActive() const noexcept {
+    return active_;
+}
+
+bool TUIInput::quitRequested() const noexcept {
+    return quitRequested_;
+}
+
+void TUIInput::requestQuit() noexcept {
+    quitRequested_ = true;
+}
+
+void TUIInput::clearQuitRequest() noexcept {
+    quitRequested_ = false;
+}
+
+bool TUIInput::pressed(Scancode scancode) const noexcept {
+    const std::size_t index{static_cast<std::size_t>(scancode)};
+    return index < scancodeCount_ && pressed_[index];
+}
+
+bool TUIInput::repeated(Scancode scancode) const noexcept {
+    const std::size_t index{static_cast<std::size_t>(scancode)};
+    return index < scancodeCount_ && repeated_[index];
+}
+
+bool TUIInput::released(Scancode scancode) const noexcept {
+    const std::size_t index{static_cast<std::size_t>(scancode)};
+    return index < scancodeCount_ && released_[index];
+}
+
+bool TUIInput::down(Scancode scancode) const noexcept {
+    const std::size_t index{static_cast<std::size_t>(scancode)};
+    return index < scancodeCount_ && down_[index];
+}
+
+std::size_t TUIInput::keyboardCount() const noexcept {
+    return keyboards_.size();
+}
+
+void TUIInput::configureTerminal() {
     if (!::isatty(STDIN_FILENO)) {
-        throw std::runtime_error("TUIInput::activate(): stdin is not a terminal");
+        return;
     }
 
-    if (::tcgetattr(STDIN_FILENO, &originalTermios_) == -1) {
-        throw std::runtime_error("TUIInput::activate(): tcgetattr failed");
+    if (::tcgetattr(STDIN_FILENO, &originalTerminalSettings_) == -1) {
+        throw std::runtime_error(
+            makeSystemError("TUIInput::configureTerminal(): tcgetattr failed")
+        );
     }
 
-    termios raw{originalTermios_};
+    termios raw{originalTerminalSettings_};
 
-    raw.c_iflag &= static_cast<tcflag_t>(~(BRKINT | ICRNL | INPCK | ISTRIP | IXON));
+    raw.c_iflag &= static_cast<tcflag_t>(
+        ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON)
+    );
+
     raw.c_cflag |= CS8;
-    raw.c_lflag &= static_cast<tcflag_t>(~(ECHO | ICANON | IEXTEN | ISIG));
+
+    raw.c_lflag &= static_cast<tcflag_t>(
+        ~(ECHO | ICANON | IEXTEN | ISIG)
+    );
 
     raw.c_cc[VMIN] = 0;
     raw.c_cc[VTIME] = 0;
 
     if (::tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) {
-        throw std::runtime_error("TUIInput::activate(): tcsetattr failed");
+        throw std::runtime_error(
+            makeSystemError("TUIInput::configureTerminal(): tcsetattr failed")
+        );
     }
 
-    pressed_.fill(false);
-    down_.fill(false);
-    pending_.clear();
-    pendingEscapeSince_.reset();
-    quitRequested_ = false;
-    active_ = true;
-
+    terminalConfigured_ = true;
 }
 
-
-void TUIInput::restore() noexcept {
-    if (!active_) {
+void TUIInput::restoreTerminal() noexcept {
+    if (!terminalConfigured_) {
         return;
     }
 
     ::tcsetattr(
         STDIN_FILENO,
         TCSAFLUSH,
-        &originalTermios_
+        &originalTerminalSettings_
     );
 
-    pending_.clear();
-    pendingEscapeSince_.reset();
-    pressed_.fill(false);
-    down_.fill(false);
-    active_ = false;
+    terminalConfigured_ = false;
 }
 
-void TUIInput::resetFrameState() noexcept {
-    pressed_.fill(false);
-    down_.fill(false);
-}
-
-void TUIInput::pollEvents() {
-    if (!active_) {
-        throw std::logic_error(
-            "TUIInput::pollEvents(): input is not active"
-        );
+void TUIInput::drainTerminalInput() noexcept {
+    if (!terminalConfigured_) {
+        return;
     }
 
-    resetFrameState();
-    readAvailableInput();
-    parsePendingInput();
-}
-
-void TUIInput::readAvailableInput() {
-    pollfd descriptor{
-        STDIN_FILENO,
-        POLLIN,
-        0
-    };
+    std::array<char, 256> buffer{};
 
     while (true) {
-        descriptor.revents = 0;
-
-        const int pollResult{
-            ::poll(&descriptor, 1, 0)
+        const ssize_t byteCount{
+            ::read(STDIN_FILENO, buffer.data(), buffer.size())
         };
 
-        if (pollResult < 0) {
-            if (errno == EINTR) {
-                continue;
-            }
-
-            throw std::runtime_error(
-                "TUIInput::pollEvents(): poll failed"
-            );
-        }
-
-        if (
-            pollResult == 0 ||
-            (descriptor.revents & POLLIN) == 0
-        ) {
-            break;
-        }
-
-        char buffer[256];
-
-        const ssize_t count{
-            ::read(
-                STDIN_FILENO,
-                buffer,
-                sizeof(buffer)
-            )
-        };
-
-        if (count > 0) {
-            pending_.append(
-                buffer,
-                static_cast<std::size_t>(count)
-            );
+        if (byteCount > 0) {
             continue;
         }
 
-        if (
-            count < 0 &&
-            (errno == EAGAIN || errno == EWOULDBLOCK)
-        ) {
-            break;
-        }
-
-        if (count < 0 && errno == EINTR) {
+        if (byteCount < 0 && errno == EINTR) {
             continue;
         }
 
@@ -160,291 +260,430 @@ void TUIInput::readAvailableInput() {
     }
 }
 
-void TUIInput::parsePendingInput() {
-    std::size_t offset{0};
+void TUIInput::discoverKeyboards() {
+    namespace fs = std::filesystem;
 
-    while (offset < pending_.size()) {
-        const unsigned char byte{
-            static_cast<unsigned char>(
-                pending_[offset]
-            )
-        };
+    const fs::path inputDirectory{"/dev/input"};
+    std::error_code error{};
 
-        if (byte != 0x1B) {
-            registerByte(byte);
-            ++offset;
+    if (!fs::exists(inputDirectory, error)) {
+        throw std::runtime_error(
+            "TUIInput::discoverKeyboards(): /dev/input does not exist"
+        );
+    }
+
+    std::vector<fs::path> candidates{};
+
+    for (const fs::directory_entry& entry :
+         fs::directory_iterator(inputDirectory, error)) {
+        if (error) {
+            break;
+        }
+
+        if (!entry.is_character_file(error)) {
             continue;
         }
 
-        const std::size_t consumed{
-            parseEscapeSequence(offset)
+        const std::string filename{entry.path().filename().string()};
+
+        if (filename.rfind("event", 0U) == 0U) {
+            candidates.push_back(entry.path());
+        }
+    }
+
+    std::sort(candidates.begin(), candidates.end());
+
+    bool permissionDenied{false};
+
+    for (const fs::path& path : candidates) {
+        const int fileDescriptor{
+            ::open(path.c_str(), O_RDONLY | O_NONBLOCK | O_CLOEXEC)
         };
 
-        if (consumed == 0U) {
-            break;
+        if (fileDescriptor == -1) {
+            if (errno == EACCES || errno == EPERM) {
+                permissionDenied = true;
+            }
+
+            continue;
         }
 
-        offset += consumed;
+        if (!isKeyboard(fileDescriptor)) {
+            ::close(fileDescriptor);
+            continue;
+        }
+
+        keyboards_.push_back(
+            KeyboardDevice{
+                fileDescriptor,
+                path.string(),
+                keyboardName(fileDescriptor),
+                true
+            }
+        );
     }
 
-    if (offset != 0U) {
-        pending_.erase(0, offset);
+    if (keyboards_.empty()) {
+        if (permissionDenied) {
+            throw std::runtime_error(
+                "TUIInput::discoverKeyboards(): no readable keyboard found; "
+                "grant read access to /dev/input/event*"
+            );
+        }
+
+        throw std::runtime_error(
+            "TUIInput::discoverKeyboards(): no evdev keyboard found"
+        );
     }
 
-    // ESC is also the first byte of arrows and function keys.
-    // Wait briefly so a fragmented sequence cannot close the program.
-    if (
-        pending_.size() == 1U &&
-        static_cast<unsigned char>(pending_[0]) == 0x1B
-    ) {
-        const auto now{Clock::now()};
+    for (KeyboardDevice& keyboard : keyboards_) {
+        resynchronizeKeyboard(keyboard);
+    }
+}
 
-        if (!pendingEscapeSince_) {
-            pendingEscapeSince_ = now;
+void TUIInput::closeKeyboards() noexcept {
+    for (KeyboardDevice& keyboard : keyboards_) {
+        if (keyboard.fileDescriptor == -1) {
+            continue;
+        }
+
+        ::close(keyboard.fileDescriptor);
+        keyboard.fileDescriptor = -1;
+    }
+
+    keyboards_.clear();
+}
+
+void TUIInput::clearFrameStates() noexcept {
+    pressed_.fill(false);
+    repeated_.fill(false);
+    released_.fill(false);
+}
+
+void TUIInput::readKeyboardEvents(KeyboardDevice& keyboard) {
+    std::array<input_event, 64> events{};
+
+    while (true) {
+        const ssize_t byteCount{
+            ::read(
+                keyboard.fileDescriptor,
+                events.data(),
+                sizeof(events)
+            )
+        };
+
+        if (byteCount < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                return;
+            }
+
+            throw std::runtime_error(
+                makeSystemError(
+                    "TUIInput::readKeyboardEvents(): read failed for " +
+                    keyboard.path
+                )
+            );
+        }
+
+        if (byteCount == 0) {
             return;
         }
 
-        if (now - *pendingEscapeSince_ >= escapeDelay_) {
-            registerKey(Key::Escape);
-            pending_.clear();
-            pendingEscapeSince_.reset();
-        }
-
-        return;
-    }
-
-    if (pending_.empty()) {
-        pendingEscapeSince_.reset();
-    }
-}
-
-std::size_t TUIInput::parseEscapeSequence(
-    std::size_t offset
-) {
-    if (offset + 1U >= pending_.size()) {
-        return 0U;
-    }
-
-    const char second{pending_[offset + 1U]};
-
-    if (second == '[') {
-        return parseCsiSequence(offset);
-    }
-
-    if (second == 'O') {
-        if (offset + 2U >= pending_.size()) {
-            return 0U;
-        }
-
-        switch (pending_[offset + 2U]) {
-            case 'P': registerKey(Key::F1); break;
-            case 'Q': registerKey(Key::F2); break;
-            case 'R': registerKey(Key::F3); break;
-            case 'S': registerKey(Key::F4); break;
-            case 'H': registerKey(Key::Home); break;
-            case 'F': registerKey(Key::End); break;
-            default: break;
-        }
-
-        return 3U;
-    }
-
-    // Alt+key: report the key itself and consume the ESC prefix.
-    registerByte(
-        static_cast<unsigned char>(
-            pending_[offset + 1U]
-        )
-    );
-
-    return 2U;
-}
-
-std::size_t TUIInput::parseCsiSequence(
-    std::size_t offset
-) {
-    std::size_t end{offset + 2U};
-
-    while (end < pending_.size()) {
-        const unsigned char value{
-            static_cast<unsigned char>(pending_[end])
+        const std::size_t eventCount{
+            static_cast<std::size_t>(byteCount) / sizeof(input_event)
         };
 
-        if (value >= 0x40U && value <= 0x7EU) {
-            break;
-        }
+        for (std::size_t index{}; index < eventCount; ++index) {
+            const input_event& event{events[index]};
 
-        ++end;
-    }
+            if (event.type == EV_SYN) {
+                if (event.code == SYN_DROPPED) {
+                    keyboard.synchronized = false;
+                } else if (
+                    event.code == SYN_REPORT &&
+                    !keyboard.synchronized
+                ) {
+                    resynchronizeKeyboard(keyboard);
+                    keyboard.synchronized = true;
+                }
 
-    if (end >= pending_.size()) {
-        return 0U;
-    }
-
-    const char final{pending_[end]};
-    const std::string_view parameters{
-        pending_.data() + offset + 2U,
-        end - (offset + 2U)
-    };
-
-    switch (final) {
-        case 'A': registerKey(Key::ArrowUp); break;
-        case 'B': registerKey(Key::ArrowDown); break;
-        case 'C': registerKey(Key::ArrowRight); break;
-        case 'D': registerKey(Key::ArrowLeft); break;
-        case 'H': registerKey(Key::Home); break;
-        case 'F': registerKey(Key::End); break;
-
-        case '~': {
-            const std::size_t separator{
-                parameters.find(';')
-            };
-
-            const std::string_view first{
-                parameters.substr(0, separator)
-            };
-
-            int number{0};
-
-            if (parseInteger(first, number)) {
-                registerKey(
-                    keyFromCsiNumber(number)
-                );
+                continue;
             }
 
-            break;
+            if (!keyboard.synchronized) {
+                continue;
+            }
+
+            if (event.type == EV_KEY) {
+                registerEvent(event.code, event.value);
+            }
         }
 
-        default:
-            // Unknown CSI sequences are consumed safely.
-            break;
+        if (static_cast<std::size_t>(byteCount) < sizeof(events)) {
+            return;
+        }
     }
-
-    return end - offset + 1U;
 }
 
-void TUIInput::registerByte(unsigned char byte) {
-    // ISIG is disabled in raw mode, so Ctrl+C arrives as byte 3.
-    if (byte == 3U) {
-        quitRequested_ = true;
+void TUIInput::resynchronizeKeyboard(KeyboardDevice& keyboard) {
+    std::array<unsigned long, wordCountForBit(KEY_MAX)> keyState{};
+
+    if (::ioctl(
+        keyboard.fileDescriptor,
+        EVIOCGKEY(sizeof(keyState)),
+        keyState.data()
+    ) == -1) {
         return;
     }
 
-    registerKey(keyFromAscii(byte));
-}
+    for (std::uint16_t code{}; code <= KEY_MAX; ++code) {
+        const Scancode scancode{fromLinuxCode(code)};
 
-void TUIInput::registerKey(Key key) noexcept {
-    if (key == Key::Unknown) {
-        return;
+        if (scancode == Scancode::Unknown) {
+            continue;
+        }
+
+        const std::size_t index{static_cast<std::size_t>(scancode)};
+        const bool isDown{bitIsSet(keyState.data(), code)};
+
+        if (isDown && !down_[index]) {
+            down_[index] = true;
+            pressed_[index] = true;
+        } else if (!isDown && down_[index]) {
+            down_[index] = false;
+            released_[index] = true;
+        }
     }
-
-    const std::size_t index{
-        static_cast<std::size_t>(key)
-    };
-
-    pressed_[index] = true;
-    down_[index] = true;
 }
 
-bool TUIInput::keyPressed(Key key) const noexcept {
-    const std::size_t index{
-        static_cast<std::size_t>(key)
-    };
-
-    return index < keyCount_ && pressed_[index];
-}
-
-bool TUIInput::keyDown(Key key) const noexcept {
-    const std::size_t index{
-        static_cast<std::size_t>(key)
-    };
-
-    return index < keyCount_ && down_[index];
-}
-
-Key TUIInput::keyFromAscii(
-    unsigned char byte
+void TUIInput::registerEvent(
+    std::uint16_t linuxCode,
+    std::int32_t value
 ) noexcept {
-    if (byte >= 'a' && byte <= 'z') {
-        return static_cast<Key>(
-            static_cast<int>(Key::A) +
-            static_cast<int>(byte - 'a')
-        );
+    const Scancode scancode{fromLinuxCode(linuxCode)};
+
+    if (scancode == Scancode::Unknown) {
+        return;
     }
 
-    if (byte >= 'A' && byte <= 'Z') {
-        return static_cast<Key>(
-            static_cast<int>(Key::A) +
-            static_cast<int>(byte - 'A')
-        );
-    }
+    const std::size_t index{static_cast<std::size_t>(scancode)};
 
-    if (byte >= '0' && byte <= '9') {
-        return static_cast<Key>(
-            static_cast<int>(Key::Num0) +
-            static_cast<int>(byte - '0')
-        );
-    }
+    switch (value) {
+        case 0:
+            if (down_[index]) {
+                released_[index] = true;
+            }
 
-    switch (byte) {
-        case '\r':
-        case '\n':
-            return Key::Enter;
+            down_[index] = false;
+            break;
 
-        case '\t':
-            return Key::Tab;
-
-        case 0x7F:
-        case 0x08:
-            return Key::Backspace;
-
-        case ' ':
-            return Key::Space;
-
-        case 0x1B:
-            return Key::Escape;
-
-        default:
-            return Key::Unknown;
-    }
-}
-
-Key TUIInput::keyFromCsiNumber(int number) noexcept {
-    switch (number) {
         case 1:
-        case 7:
-            return Key::Home;
+            if (!down_[index]) {
+                pressed_[index] = true;
+            }
+
+            down_[index] = true;
+            break;
 
         case 2:
-            return Key::Insert;
-
-        case 3:
-            return Key::Delete;
-
-        case 4:
-        case 8:
-            return Key::End;
-
-        case 5:
-            return Key::PageUp;
-
-        case 6:
-            return Key::PageDown;
-
-        case 11: return Key::F1;
-        case 12: return Key::F2;
-        case 13: return Key::F3;
-        case 14: return Key::F4;
-        case 15: return Key::F5;
-        case 17: return Key::F6;
-        case 18: return Key::F7;
-        case 19: return Key::F8;
-        case 20: return Key::F9;
-        case 21: return Key::F10;
-        case 23: return Key::F11;
-        case 24: return Key::F12;
+            repeated_[index] = true;
+            down_[index] = true;
+            break;
 
         default:
-            return Key::Unknown;
+            break;
+    }
+}
+
+bool TUIInput::isKeyboard(int fileDescriptor) noexcept {
+    std::array<unsigned long, wordCountForBit(EV_MAX)> eventBits{};
+
+    if (::ioctl(
+        fileDescriptor,
+        EVIOCGBIT(0, sizeof(eventBits)),
+        eventBits.data()
+    ) == -1) {
+        return false;
+    }
+
+    if (!bitIsSet(eventBits.data(), EV_KEY)) {
+        return false;
+    }
+
+    std::array<unsigned long, wordCountForBit(KEY_MAX)> keyBits{};
+
+    if (::ioctl(
+        fileDescriptor,
+        EVIOCGBIT(EV_KEY, sizeof(keyBits)),
+        keyBits.data()
+    ) == -1) {
+        return false;
+    }
+
+    return bitIsSet(keyBits.data(), KEY_A) &&
+           bitIsSet(keyBits.data(), KEY_Z) &&
+           bitIsSet(keyBits.data(), KEY_ENTER) &&
+           bitIsSet(keyBits.data(), KEY_SPACE);
+}
+
+std::string TUIInput::keyboardName(int fileDescriptor) {
+    std::array<char, 256> name{};
+
+    if (::ioctl(
+        fileDescriptor,
+        EVIOCGNAME(name.size()),
+        name.data()
+    ) == -1) {
+        return "Unknown keyboard";
+    }
+
+    return name.data();
+}
+
+Scancode TUIInput::fromLinuxCode(std::uint16_t linuxCode) noexcept {
+    switch (linuxCode) {
+        case KEY_ESC: return Scancode::Escape;
+        case KEY_ENTER: return Scancode::Enter;
+        case KEY_TAB: return Scancode::Tab;
+        case KEY_BACKSPACE: return Scancode::Backspace;
+        case KEY_SPACE: return Scancode::Space;
+
+        case KEY_UP: return Scancode::ArrowUp;
+        case KEY_DOWN: return Scancode::ArrowDown;
+        case KEY_LEFT: return Scancode::ArrowLeft;
+        case KEY_RIGHT: return Scancode::ArrowRight;
+
+        case KEY_HOME: return Scancode::Home;
+        case KEY_END: return Scancode::End;
+        case KEY_INSERT: return Scancode::Insert;
+        case KEY_DELETE: return Scancode::Delete;
+        case KEY_PAGEUP: return Scancode::PageUp;
+        case KEY_PAGEDOWN: return Scancode::PageDown;
+
+        case KEY_LEFTSHIFT: return Scancode::LeftShift;
+        case KEY_RIGHTSHIFT: return Scancode::RightShift;
+        case KEY_LEFTCTRL: return Scancode::LeftControl;
+        case KEY_RIGHTCTRL: return Scancode::RightControl;
+        case KEY_LEFTALT: return Scancode::LeftAlt;
+        case KEY_RIGHTALT: return Scancode::RightAlt;
+        case KEY_LEFTMETA: return Scancode::LeftSuper;
+        case KEY_RIGHTMETA: return Scancode::RightSuper;
+        case KEY_MENU: return Scancode::Menu;
+
+        case KEY_CAPSLOCK: return Scancode::CapsLock;
+        case KEY_NUMLOCK: return Scancode::NumLock;
+        case KEY_SCROLLLOCK: return Scancode::ScrollLock;
+        case KEY_SYSRQ: return Scancode::PrintScreen;
+        case KEY_PAUSE: return Scancode::Pause;
+
+        case KEY_F1: return Scancode::F1;
+        case KEY_F2: return Scancode::F2;
+        case KEY_F3: return Scancode::F3;
+        case KEY_F4: return Scancode::F4;
+        case KEY_F5: return Scancode::F5;
+        case KEY_F6: return Scancode::F6;
+        case KEY_F7: return Scancode::F7;
+        case KEY_F8: return Scancode::F8;
+        case KEY_F9: return Scancode::F9;
+        case KEY_F10: return Scancode::F10;
+        case KEY_F11: return Scancode::F11;
+        case KEY_F12: return Scancode::F12;
+        case KEY_F13: return Scancode::F13;
+        case KEY_F14: return Scancode::F14;
+        case KEY_F15: return Scancode::F15;
+        case KEY_F16: return Scancode::F16;
+        case KEY_F17: return Scancode::F17;
+        case KEY_F18: return Scancode::F18;
+        case KEY_F19: return Scancode::F19;
+        case KEY_F20: return Scancode::F20;
+        case KEY_F21: return Scancode::F21;
+        case KEY_F22: return Scancode::F22;
+        case KEY_F23: return Scancode::F23;
+        case KEY_F24: return Scancode::F24;
+
+        case KEY_A: return Scancode::KeyA;
+        case KEY_B: return Scancode::KeyB;
+        case KEY_C: return Scancode::KeyC;
+        case KEY_D: return Scancode::KeyD;
+        case KEY_E: return Scancode::KeyE;
+        case KEY_F: return Scancode::KeyF;
+        case KEY_G: return Scancode::KeyG;
+        case KEY_H: return Scancode::KeyH;
+        case KEY_I: return Scancode::KeyI;
+        case KEY_J: return Scancode::KeyJ;
+        case KEY_K: return Scancode::KeyK;
+        case KEY_L: return Scancode::KeyL;
+        case KEY_M: return Scancode::KeyM;
+        case KEY_N: return Scancode::KeyN;
+        case KEY_O: return Scancode::KeyO;
+        case KEY_P: return Scancode::KeyP;
+        case KEY_Q: return Scancode::KeyQ;
+        case KEY_R: return Scancode::KeyR;
+        case KEY_S: return Scancode::KeyS;
+        case KEY_T: return Scancode::KeyT;
+        case KEY_U: return Scancode::KeyU;
+        case KEY_V: return Scancode::KeyV;
+        case KEY_W: return Scancode::KeyW;
+        case KEY_X: return Scancode::KeyX;
+        case KEY_Y: return Scancode::KeyY;
+        case KEY_Z: return Scancode::KeyZ;
+
+        case KEY_0: return Scancode::Digit0;
+        case KEY_1: return Scancode::Digit1;
+        case KEY_2: return Scancode::Digit2;
+        case KEY_3: return Scancode::Digit3;
+        case KEY_4: return Scancode::Digit4;
+        case KEY_5: return Scancode::Digit5;
+        case KEY_6: return Scancode::Digit6;
+        case KEY_7: return Scancode::Digit7;
+        case KEY_8: return Scancode::Digit8;
+        case KEY_9: return Scancode::Digit9;
+
+        case KEY_GRAVE: return Scancode::Grave;
+        case KEY_MINUS: return Scancode::Minus;
+        case KEY_EQUAL: return Scancode::Equal;
+        case KEY_LEFTBRACE: return Scancode::LeftBracket;
+        case KEY_RIGHTBRACE: return Scancode::RightBracket;
+        case KEY_BACKSLASH: return Scancode::Backslash;
+        case KEY_SEMICOLON: return Scancode::Semicolon;
+        case KEY_APOSTROPHE: return Scancode::Apostrophe;
+        case KEY_COMMA: return Scancode::Comma;
+        case KEY_DOT: return Scancode::Period;
+        case KEY_SLASH: return Scancode::Slash;
+
+        case KEY_KP0: return Scancode::Keypad0;
+        case KEY_KP1: return Scancode::Keypad1;
+        case KEY_KP2: return Scancode::Keypad2;
+        case KEY_KP3: return Scancode::Keypad3;
+        case KEY_KP4: return Scancode::Keypad4;
+        case KEY_KP5: return Scancode::Keypad5;
+        case KEY_KP6: return Scancode::Keypad6;
+        case KEY_KP7: return Scancode::Keypad7;
+        case KEY_KP8: return Scancode::Keypad8;
+        case KEY_KP9: return Scancode::Keypad9;
+
+        case KEY_KPDOT: return Scancode::KeypadDecimal;
+        case KEY_KPSLASH: return Scancode::KeypadDivide;
+        case KEY_KPASTERISK: return Scancode::KeypadMultiply;
+        case KEY_KPMINUS: return Scancode::KeypadSubtract;
+        case KEY_KPPLUS: return Scancode::KeypadAdd;
+        case KEY_KPENTER: return Scancode::KeypadEnter;
+        case KEY_KPEQUAL: return Scancode::KeypadEqual;
+
+        case KEY_MUTE: return Scancode::VolumeMute;
+        case KEY_VOLUMEDOWN: return Scancode::VolumeDown;
+        case KEY_VOLUMEUP: return Scancode::VolumeUp;
+        case KEY_PLAYPAUSE: return Scancode::MediaPlayPause;
+        case KEY_STOPCD: return Scancode::MediaStop;
+        case KEY_PREVIOUSSONG: return Scancode::MediaPrevious;
+        case KEY_NEXTSONG: return Scancode::MediaNext;
+
+        default:
+            return Scancode::Unknown;
     }
 }
 

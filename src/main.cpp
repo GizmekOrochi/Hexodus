@@ -184,7 +184,11 @@ int main() {
         while (running) {
             const auto currentTime{Clock::now()};
 
-            float deltaTime{std::chrono::duration<float>(currentTime - previousTime).count()};
+            float deltaTime{
+                std::chrono::duration<float>(
+                    currentTime - previousTime
+                ).count()
+            };
 
             previousTime = currentTime;
 
@@ -192,60 +196,54 @@ int main() {
 
             input.pollEvents();
 
-            if (input.quitRequested() ||input.keyPressed(TUI::Key::Escape)) {
+            if (input.quitRequested() ||
+                input.pressed(TUI::Scancode::Escape)) {
                 running = false;
                 continue;
             }
 
-            /*
-             * Dans un terminal, il n'existe pas de vrai événement
-             * "touche maintenue". La répétition vient du système.
-             * Le multiplicateur permet de rendre chaque événement visible.
-             */
-            constexpr float movementMultiplier{5.0f};
+            const float movementDelta{deltaTime};
             constexpr float rotationMultiplier{3.0f};
 
-            const float movementDelta{std::max(deltaTime, 1.0f / 60.0f) * movementMultiplier};
-            const float rotationDelta{std::max(deltaTime, 1.0f / 60.0f) * rotationMultiplier};
+            const float rotationDelta{deltaTime * rotationMultiplier};
 
-
-            if (input.keyDown(TUI::Key::Z)) {
+            if (input.down(TUI::Scancode::KeyW)) {
                 camera.moveForward(movementDelta);
             }
 
-            if (input.keyDown(TUI::Key::S)) {
+            if (input.down(TUI::Scancode::KeyS)) {
                 camera.moveForward(-movementDelta);
             }
 
-            if (input.keyDown(TUI::Key::Q)) {
+            if (input.down(TUI::Scancode::KeyA)) {
                 camera.moveRight(-movementDelta);
             }
 
-            if (input.keyDown(TUI::Key::D)) {
+            if (input.down(TUI::Scancode::KeyD)) {
                 camera.moveRight(movementDelta);
             }
 
-            if (input.keyDown(TUI::Key::Space)) {
+            if (input.down(TUI::Scancode::Space)) {
                 camera.moveUp(movementDelta);
             }
 
-            if (input.keyDown(TUI::Key::C)) {
+            if (input.down(TUI::Scancode::KeyC)) {
                 camera.moveUp(-movementDelta);
             }
 
-            if (input.keyDown(TUI::Key::ArrowLeft)) {
+            if (input.down(TUI::Scancode::ArrowLeft)) {
                 camera.rotate(-rotationDelta, 0.0f);
             }
 
-            if (input.keyDown(TUI::Key::ArrowRight)) {
+            if (input.down(TUI::Scancode::ArrowRight)) {
                 camera.rotate(rotationDelta, 0.0f);
             }
 
-            if (input.keyDown(TUI::Key::ArrowUp)) {
+            if (input.down(TUI::Scancode::ArrowUp)) {
                 camera.rotate(0.0f, -rotationDelta);
             }
 
-            if (input.keyDown(TUI::Key::ArrowDown)) {
+            if (input.down(TUI::Scancode::ArrowDown)) {
                 camera.rotate(0.0f, rotationDelta);
             }
 

@@ -1,20 +1,19 @@
-#ifndef TUIINPUT_HPP
-#define TUIINPUT_HPP
+#ifndef TUI_INPUT_HPP
+#define TUI_INPUT_HPP
 
-#pragma once
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
-#include <chrono>
-#include <optional>
 #include <string>
 #include <termios.h>
+#include <vector>
 
 namespace TUI {
 
-enum class Key : std::uint16_t {
+enum class Scancode : std::uint16_t {
     Unknown = 0,
+
     Escape,
     Enter,
     Tab,
@@ -33,91 +32,195 @@ enum class Key : std::uint16_t {
     PageUp,
     PageDown,
 
-    F1, F2, F3, F4, F5, F6,
-    F7, F8, F9, F10, F11, F12,
+    LeftShift,
+    RightShift,
+    LeftControl,
+    RightControl,
+    LeftAlt,
+    RightAlt,
+    LeftSuper,
+    RightSuper,
+    Menu,
 
-    A, B, C, D, E, F, G, H, I, J, K, L, M,
-    N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
+    CapsLock,
+    NumLock,
+    ScrollLock,
+    PrintScreen,
+    Pause,
 
-    Num0, Num1, Num2, Num3, Num4,
-    Num5, Num6, Num7, Num8, Num9,
+    F1,
+    F2,
+    F3,
+    F4,
+    F5,
+    F6,
+    F7,
+    F8,
+    F9,
+    F10,
+    F11,
+    F12,
+    F13,
+    F14,
+    F15,
+    F16,
+    F17,
+    F18,
+    F19,
+    F20,
+    F21,
+    F22,
+    F23,
+    F24,
+
+    KeyA,
+    KeyB,
+    KeyC,
+    KeyD,
+    KeyE,
+    KeyF,
+    KeyG,
+    KeyH,
+    KeyI,
+    KeyJ,
+    KeyK,
+    KeyL,
+    KeyM,
+    KeyN,
+    KeyO,
+    KeyP,
+    KeyQ,
+    KeyR,
+    KeyS,
+    KeyT,
+    KeyU,
+    KeyV,
+    KeyW,
+    KeyX,
+    KeyY,
+    KeyZ,
+
+    Digit0,
+    Digit1,
+    Digit2,
+    Digit3,
+    Digit4,
+    Digit5,
+    Digit6,
+    Digit7,
+    Digit8,
+    Digit9,
+
+    Grave,
+    Minus,
+    Equal,
+    LeftBracket,
+    RightBracket,
+    Backslash,
+    Semicolon,
+    Apostrophe,
+    Comma,
+    Period,
+    Slash,
+
+    Keypad0,
+    Keypad1,
+    Keypad2,
+    Keypad3,
+    Keypad4,
+    Keypad5,
+    Keypad6,
+    Keypad7,
+    Keypad8,
+    Keypad9,
+
+    KeypadDecimal,
+    KeypadDivide,
+    KeypadMultiply,
+    KeypadSubtract,
+    KeypadAdd,
+    KeypadEnter,
+    KeypadEqual,
+
+    VolumeMute,
+    VolumeDown,
+    VolumeUp,
+    MediaPlayPause,
+    MediaStop,
+    MediaPrevious,
+    MediaNext,
 
     Count
 };
 
 class TUIInput {
 public:
-    TUIInput() = default;
+    TUIInput();
     ~TUIInput();
 
     TUIInput(const TUIInput&) = delete;
     TUIInput& operator=(const TUIInput&) = delete;
 
-    // Enables raw, non-blocking keyboard input.
-    // This function does not enable any mouse terminal protocol.
     void activate();
-
-    // Restores the exact stdin flags and termios state saved by activate().
     void restore() noexcept;
-
-    // Reads every keyboard event currently waiting on stdin.
-    // This call never blocks.
     void pollEvents();
 
-    [[nodiscard]] bool active() const noexcept {
-        return active_;
-    }
+    [[nodiscard]] bool isActive() const noexcept;
+    [[nodiscard]] bool quitRequested() const noexcept;
 
-    // True when this key was received during the current poll.
-    [[nodiscard]] bool keyPressed(Key key) const noexcept;
+    void requestQuit() noexcept;
+    void clearQuitRequest() noexcept;
 
-    // In a classic terminal there is no key-release event.
-    // keyDown therefore means "received this frame or from OS key repeat".
-    [[nodiscard]] bool keyDown(Key key) const noexcept;
+    [[nodiscard]] bool pressed(Scancode scancode) const noexcept;
+    [[nodiscard]] bool repeated(Scancode scancode) const noexcept;
+    [[nodiscard]] bool released(Scancode scancode) const noexcept;
+    [[nodiscard]] bool down(Scancode scancode) const noexcept;
 
-    [[nodiscard]] bool quitRequested() const noexcept {
-        return quitRequested_;
-    }
-
-    void requestQuit() noexcept {
-        quitRequested_ = true;
-    }
-
-    void clearQuitRequest() noexcept {
-        quitRequested_ = false;
-    }
+    [[nodiscard]] std::size_t keyboardCount() const noexcept;
 
 private:
-    static constexpr std::size_t keyCount_{static_cast<std::size_t>(Key::Count)};
+    static constexpr std::size_t scancodeCount_{
+        static_cast<std::size_t>(Scancode::Count)
+    };
 
-    bool active_{false};
-    bool quitRequested_{false};
-    termios originalTermios_{};
+    struct KeyboardDevice {
+        int fileDescriptor;
+        std::string path;
+        std::string name;
+        bool synchronized;
+    };
 
-    std::array<bool, keyCount_> pressed_{};
-    std::array<bool, keyCount_> down_{};
+    bool active_;
+    bool quitRequested_;
+    bool terminalConfigured_;
 
-    // Keeps an incomplete ANSI escape sequence between two polls.
-    using Clock = std::chrono::steady_clock;
-    static constexpr auto escapeDelay_{std::chrono::milliseconds{30}};
+    termios originalTerminalSettings_;
 
-    std::string pending_{};
-    std::optional<Clock::time_point> pendingEscapeSince_{};
+    std::vector<KeyboardDevice> keyboards_;
 
-    void resetFrameState() noexcept;
-    void readAvailableInput();
-    void parsePendingInput();
+    std::array<bool, scancodeCount_> pressed_;
+    std::array<bool, scancodeCount_> repeated_;
+    std::array<bool, scancodeCount_> released_;
+    std::array<bool, scancodeCount_> down_;
 
-    std::size_t parseEscapeSequence(std::size_t offset);
-    std::size_t parseCsiSequence(std::size_t offset);
+    void configureTerminal();
+    void restoreTerminal() noexcept;
+    void drainTerminalInput() noexcept;
 
-    void registerByte(unsigned char byte);
-    void registerKey(Key key) noexcept;
+    void discoverKeyboards();
+    void closeKeyboards() noexcept;
 
-    [[nodiscard]] static Key keyFromAscii(unsigned char byte) noexcept;
-    [[nodiscard]] static Key keyFromCsiNumber(int number) noexcept;
+    void clearFrameStates() noexcept;
+    void readKeyboardEvents(KeyboardDevice& keyboard);
+    void resynchronizeKeyboard(KeyboardDevice& keyboard);
+
+    void registerEvent(std::uint16_t linuxCode, std::int32_t value) noexcept;
+
+    [[nodiscard]] static bool isKeyboard(int fileDescriptor) noexcept;
+    [[nodiscard]] static std::string keyboardName(int fileDescriptor);
+    [[nodiscard]] static Scancode fromLinuxCode(std::uint16_t linuxCode) noexcept;
 };
 
 } // namespace TUI
 
-#endif // TUIINPUT_HPP
+#endif // TUI_INPUT_HPP
