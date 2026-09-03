@@ -4,9 +4,13 @@
 #include <cstddef>
 #include <exception>
 #include <iostream>
+#include <cstdlib>
+#include <string_view>
 
-#include "include/TUIInput.hpp"
+#include "../libs/TUIinput/TUIInput.hpp"
 #include "include/TUIRenderer.hpp"
+#include "include/util/Terminal.hpp"
+#include "include/util/ResolutionController.hpp"
 
 namespace {
 
@@ -146,16 +150,102 @@ void buildTestMap(Scene& scene) {
     addBox(scene, -9.0f, 10.0f, 222.0f, 9.0f, 35.0f, 240.0f, Pixel{30, 220, 180, 255});
 }
 
+
+struct CellPixelSize {
+    int width;
+    int height;
+};
+
+CellPixelSize terminalCellPixelSize() noexcept {
+    const char* termEnvironment{std::getenv("TERM")};
+
+    if (termEnvironment != nullptr) {
+        const std::string_view term{termEnvironment};
+
+        if (term == "linux" || term.starts_with("linux-")) {
+            return CellPixelSize{1, 1};
+        }
+    }
+
+    return CellPixelSize{2, 2};
+}
+
+void drawTerminalTooSmall(
+    TUI::TUIGraphicManager& graphicManager,
+    const TUI::Terminal& terminal,
+    const TUI::ResolutionController& resolution,
+    CellPixelSize cellSize
+) {
+    const TUI::RenderResolution available{
+        terminal.width() * cellSize.width,
+        terminal.height() * cellSize.height
+    };
+
+    const auto required{resolution.minimum()};
+
+    /*
+     * On passe uniquement par l'API TUI :
+     * - reset des couleurs
+     * - nettoyage de l'écran
+     * - retour du curseur en haut à gauche
+     */
+    graphicManager.TUIResetColors();
+    graphicManager.TUIClear();
+    graphicManager.TUICursorHome();
+    graphicManager.TUIHideCursor();
+
+    std::string message;
+    message.reserve(256);
+
+    message += "\n  Hexodus / TUI\n";
+    message += "  ------------------------------\n\n";
+    message += "  Terminal too small.\n\n";
+
+    message += "  Minimum logical resolution : ";
+    message += std::to_string(required.width);
+    message += 'x';
+    message += std::to_string(required.height);
+    message += '\n';
+
+    message += "  Current logical resolution : ";
+    message += std::to_string(available.width);
+    message += 'x';
+    message += std::to_string(available.height);
+    message += '\n';
+
+    message += "  Terminal cells             : ";
+    message += std::to_string(terminal.width());
+    message += 'x';
+    message += std::to_string(terminal.height());
+    message += '\n';
+
+    message += "\n  Resize the terminal to continue.\n";
+
+    graphicManager.TUIDisplayChar(message);
+}
+
 } // namespace
 
 int main() {
     TUI::TUIRenderer renderer{};
     TUI::TUIInput input{};
+    TUI::TUIGraphicManager graphicManager{};
+    TUI::Terminal terminal{};
+    TUI::ResolutionController resolution{};
 
     bool rendererActive{false};
     bool inputActive{false};
 
     try {
+        /*
+         * Résolution logique minimale.
+         * En UnicodeQuad : 160x48 ~= terminal 80x24.
+         */
+        resolution.setMinimum(160, 48);
+        resolution.setMode(TUI::ResolutionMode::Automatic);
+
+        const CellPixelSize cellSize{terminalCellPixelSize()};
+
         Scene scene{{0, 0}, {100, 100}};
         renderer.InitScene(&scene);
 
@@ -182,6 +272,7 @@ int main() {
 
         auto previousTime{Clock::now()};
         bool running{true};
+        bool terminalTooSmallDrawn{false};
 
         while (running) {
             const auto currentTime{Clock::now()};
@@ -192,12 +283,44 @@ int main() {
 
             deltaTime = std::clamp(deltaTime, 0.0f, 0.1f);
 
+            terminal.update();
+
+            const bool resolutionSupported{
+                resolution.supported(
+                    terminal.size(),
+                    cellSize.width,
+                    cellSize.height
+                )
+            };
+
             input.pollEvents();
 
-            if (input.quitRequested() ||input.pressed(TUI::Scancode::Escape)) {
+            if (
+                input.quitRequested() ||
+                input.pressed(TUI::Scancode::Escape)
+            ) {
                 running = false;
                 continue;
             }
+
+            if (!resolutionSupported) {
+                if (!terminalTooSmallDrawn || terminal.resized()) {
+                    drawTerminalTooSmall(
+                        graphicManager,
+                        terminal,
+                        resolution,
+                        cellSize
+                    );
+
+                    terminalTooSmallDrawn = true;
+                }
+
+                continue;
+            }
+
+            // Si on revient à une résolution valide, le message
+            // "Terminal too small" devra pouvoir être réaffiché plus tard.
+            terminalTooSmallDrawn = false;
 
             /*
              * Dans un terminal, il n'existe pas de vrai événement
@@ -279,8 +402,15 @@ int main() {
                 );
             }
 
+            if (terminal.resized()) {
+                renderer.invalidate();
+            }
+
             renderer.drawBuffer();
         }
+
+        graphicManager.TUIResetColors();
+        graphicManager.TUIShowCursor();
 
         input.restore();
         inputActive = false;
@@ -291,6 +421,9 @@ int main() {
         return 0;
     }
     catch (const std::exception& exception) {
+        graphicManager.TUIResetColors();
+        graphicManager.TUIShowCursor();
+
         if (inputActive) {
             input.restore();
         }
