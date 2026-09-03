@@ -1,4 +1,4 @@
-#include "../include/TUIInput.hpp"
+#include "TUIInput.hpp"
 
 #include <algorithm>
 #include <array>

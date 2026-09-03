@@ -225,9 +225,7 @@ public:
     [[nodiscard]] bool mouseForwardReleased() const noexcept;
 
 private:
-    static constexpr std::size_t scancodeCount_{
-        static_cast<std::size_t>(Scancode::Count)
-    };
+    static constexpr std::size_t scancodeCount_{static_cast<std::size_t>(Scancode::Count)};
 
     struct KeyboardDevice {
         int fileDescriptor;
@@ -257,20 +255,9 @@ private:
         float residualX;
         float residualY;
 
-        std::array<
-            bool,
-            static_cast<std::size_t>(MouseButton::Count)
-        > down;
-
-        std::array<
-            bool,
-            static_cast<std::size_t>(MouseButton::Count)
-        > pressed;
-
-        std::array<
-            bool,
-            static_cast<std::size_t>(MouseButton::Count)
-        > released;
+        std::array<bool, static_cast<std::size_t>(MouseButton::Count)> down;
+        std::array<bool, static_cast<std::size_t>(MouseButton::Count)> pressed;
+        std::array<bool, static_cast<std::size_t>(MouseButton::Count)> released;
     };
 
     bool active_;
@@ -310,9 +297,7 @@ private:
     [[nodiscard]] static bool isMouse(int fileDescriptor) noexcept;
     [[nodiscard]] static std::string deviceName(int fileDescriptor);
     [[nodiscard]] static Scancode fromLinuxCode(std::uint16_t linuxCode) noexcept;
-    [[nodiscard]] static MouseButton fromLinuxMouseButton(
-        std::uint16_t linuxCode
-    ) noexcept;
+    [[nodiscard]] static MouseButton fromLinuxMouseButton(std::uint16_t linuxCode) noexcept;
 };
 
 } // namespace TUI
