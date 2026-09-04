@@ -1,7 +1,6 @@
 #ifndef TUI_INPUT_HPP
 #define TUI_INPUT_HPP
 
-
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -10,6 +9,12 @@
 #include <vector>
 
 namespace TUI {
+
+enum class KeyboardLayout : std::uint8_t {
+    Physical = 0,
+    Qwerty,
+    Azerty
+};
 
 enum class Scancode : std::uint16_t {
     Unknown = 0,
@@ -159,7 +164,6 @@ enum class MouseButton : std::uint8_t {
     Middle,
     Back,
     Forward,
-
     Count
 };
 
@@ -181,6 +185,11 @@ public:
     void requestQuit() noexcept;
     void clearQuitRequest() noexcept;
 
+    // Layout used to translate Linux evdev positions into logical letters.
+    // Physical keeps the original behavior. Set Azerty for a French AZERTY keyboard.
+    void setKeyboardLayout(KeyboardLayout layout) noexcept;
+    [[nodiscard]] KeyboardLayout keyboardLayout() const noexcept;
+
     [[nodiscard]] bool pressed(Scancode scancode) const noexcept;
     [[nodiscard]] bool repeated(Scancode scancode) const noexcept;
     [[nodiscard]] bool released(Scancode scancode) const noexcept;
@@ -194,7 +203,6 @@ public:
     void setMouseSensitivity(float sensitivity) noexcept;
 
     [[nodiscard]] float mouseSensitivity() const noexcept;
-
     [[nodiscard]] int mouseX() const noexcept;
     [[nodiscard]] int mouseY() const noexcept;
     [[nodiscard]] int mouseDeltaX() const noexcept;
@@ -208,15 +216,12 @@ public:
     [[nodiscard]] bool mouseLeftDown() const noexcept;
     [[nodiscard]] bool mouseRightDown() const noexcept;
     [[nodiscard]] bool mouseMiddleDown() const noexcept;
-
     [[nodiscard]] bool mouseLeftPressed() const noexcept;
     [[nodiscard]] bool mouseRightPressed() const noexcept;
     [[nodiscard]] bool mouseMiddlePressed() const noexcept;
-
     [[nodiscard]] bool mouseLeftReleased() const noexcept;
     [[nodiscard]] bool mouseRightReleased() const noexcept;
     [[nodiscard]] bool mouseMiddleReleased() const noexcept;
-
     [[nodiscard]] bool mouseBackDown() const noexcept;
     [[nodiscard]] bool mouseForwardDown() const noexcept;
     [[nodiscard]] bool mouseBackPressed() const noexcept;
@@ -225,9 +230,7 @@ public:
     [[nodiscard]] bool mouseForwardReleased() const noexcept;
 
 private:
-    static constexpr std::size_t scancodeCount_{
-        static_cast<std::size_t>(Scancode::Count)
-    };
+    static constexpr std::size_t scancodeCount_{static_cast<std::size_t>(Scancode::Count)};
 
     struct KeyboardDevice {
         int fileDescriptor;
@@ -249,39 +252,24 @@ private:
         int deltaX;
         int deltaY;
         int wheelDelta;
-
         int width;
         int height;
-
         float sensitivity;
         float residualX;
         float residualY;
-
-        std::array<
-            bool,
-            static_cast<std::size_t>(MouseButton::Count)
-        > down;
-
-        std::array<
-            bool,
-            static_cast<std::size_t>(MouseButton::Count)
-        > pressed;
-
-        std::array<
-            bool,
-            static_cast<std::size_t>(MouseButton::Count)
-        > released;
+        std::array<bool, static_cast<std::size_t>(MouseButton::Count)> down;
+        std::array<bool, static_cast<std::size_t>(MouseButton::Count)> pressed;
+        std::array<bool, static_cast<std::size_t>(MouseButton::Count)> released;
     };
 
     bool active_;
     bool quitRequested_;
     bool terminalConfigured_;
+    KeyboardLayout keyboardLayout_;
 
     termios originalTerminalSettings_;
-
     std::vector<KeyboardDevice> keyboards_;
     std::vector<MouseDevice> mice_;
-
     MouseState mouse_;
 
     std::array<bool, scancodeCount_> pressed_;
@@ -295,24 +283,24 @@ private:
 
     void discoverDevices();
     void closeDevices() noexcept;
-
     void clearFrameStates() noexcept;
     void readKeyboardEvents(KeyboardDevice& keyboard);
     void readMouseEvents(MouseDevice& mouse);
     void resynchronizeKeyboard(KeyboardDevice& keyboard);
+    void synchronizeKeyboardState() noexcept;
     void resynchronizeMouse(MouseDevice& mouse);
 
     void registerEvent(std::uint16_t linuxCode, std::int32_t value) noexcept;
     void registerMouseButton(std::uint16_t linuxCode, std::int32_t value) noexcept;
     void clampMousePosition() noexcept;
 
+    [[nodiscard]] Scancode mapLinuxCode(std::uint16_t linuxCode) const noexcept;
+    [[nodiscard]] static Scancode fromLinuxCodePhysical(std::uint16_t linuxCode) noexcept;
+    [[nodiscard]] static Scancode fromLinuxCodeAzerty(std::uint16_t linuxCode) noexcept;
     [[nodiscard]] static bool isKeyboard(int fileDescriptor) noexcept;
     [[nodiscard]] static bool isMouse(int fileDescriptor) noexcept;
     [[nodiscard]] static std::string deviceName(int fileDescriptor);
-    [[nodiscard]] static Scancode fromLinuxCode(std::uint16_t linuxCode) noexcept;
-    [[nodiscard]] static MouseButton fromLinuxMouseButton(
-        std::uint16_t linuxCode
-    ) noexcept;
+    [[nodiscard]] static MouseButton fromLinuxMouseButton(std::uint16_t linuxCode) noexcept;
 };
 
 } // namespace TUI

@@ -263,6 +263,8 @@ int main() {
         renderer.activate();
         rendererActive = true;
 
+        // French AZERTY: Scancode::KeyZ means the visible Z key, etc.
+        input.setKeyboardLayout(TUI::KeyboardLayout::Azerty);
         input.activate();
         inputActive = true;
 
@@ -285,13 +287,7 @@ int main() {
 
             terminal.update();
 
-            const bool resolutionSupported{
-                resolution.supported(
-                    terminal.size(),
-                    cellSize.width,
-                    cellSize.height
-                )
-            };
+            const bool resolutionSupported{resolution.supported(terminal.size(), cellSize.width, cellSize.height)};
 
             input.pollEvents();
 
@@ -305,12 +301,7 @@ int main() {
 
             if (!resolutionSupported) {
                 if (!terminalTooSmallDrawn || terminal.resized()) {
-                    drawTerminalTooSmall(
-                        graphicManager,
-                        terminal,
-                        resolution,
-                        cellSize
-                    );
+                    drawTerminalTooSmall(graphicManager, terminal, resolution, cellSize);
 
                     terminalTooSmallDrawn = true;
                 }
@@ -327,9 +318,9 @@ int main() {
              * "touche maintenue". La répétition vient du système.
              * Le multiplicateur permet de rendre chaque événement visible.
              */
-            constexpr float movementMultiplier{0.0f};
-            constexpr float keyboardRotationMultiplier{3.0f};
-            constexpr float mouseRotationMultiplier{0.35f};
+            constexpr float movementMultiplier{0.05f};
+            constexpr float keyboardRotationMultiplier{0.125f};
+            constexpr float mouseRotationMultiplier{0.25f};
 
             const float movementDelta{
                 std::max(deltaTime, 1.0f / 60.0f) *
@@ -352,7 +343,7 @@ int main() {
             };
 
 
-            if (input.down(TUI::Scancode::KeyW)) {
+            if (input.down(TUI::Scancode::KeyZ)) {
                 camera.moveForward(movementDelta);
             }
 
@@ -360,7 +351,7 @@ int main() {
                 camera.moveForward(-movementDelta);
             }
 
-            if (input.down(TUI::Scancode::KeyA)) {
+            if (input.down(TUI::Scancode::KeyQ)) {
                 camera.moveRight(-movementDelta);
             }
 
@@ -372,7 +363,10 @@ int main() {
                 camera.moveUp(movementDelta);
             }
 
-            if (input.down(TUI::Scancode::KeyC)) {
+            if (
+                input.down(TUI::Scancode::LeftShift) ||
+                input.down(TUI::Scancode::RightShift)
+            ) {
                 camera.moveUp(-movementDelta);
             }
 

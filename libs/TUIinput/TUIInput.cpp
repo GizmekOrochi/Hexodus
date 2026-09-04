@@ -39,6 +39,7 @@ TUIInput::TUIInput()
     : active_{false},
       quitRequested_{false},
       terminalConfigured_{false},
+      keyboardLayout_{KeyboardLayout::Physical},
       originalTerminalSettings_{},
       keyboards_{},
       mice_{},
@@ -209,6 +210,7 @@ void TUIInput::pollEvents() {
         }
     }
 
+    synchronizeKeyboardState();
     clampMousePosition();
 
     const bool controlDown{
@@ -235,6 +237,31 @@ void TUIInput::requestQuit() noexcept {
 
 void TUIInput::clearQuitRequest() noexcept {
     quitRequested_ = false;
+}
+
+void TUIInput::setKeyboardLayout(KeyboardLayout layout) noexcept {
+    if (keyboardLayout_ == layout) {
+        return;
+    }
+
+    keyboardLayout_ = layout;
+
+    // A layout change invalidates cached key states because the same physical
+    // key can now map to a different logical Scancode.
+    pressed_.fill(false);
+    repeated_.fill(false);
+    released_.fill(false);
+    down_.fill(false);
+
+    if (active_) {
+        for (KeyboardDevice& keyboard : keyboards_) {
+            resynchronizeKeyboard(keyboard);
+        }
+    }
+}
+
+KeyboardLayout TUIInput::keyboardLayout() const noexcept {
+    return keyboardLayout_;
 }
 
 bool TUIInput::pressed(Scancode scancode) const noexcept {
@@ -831,6 +858,9 @@ void TUIInput::readMouseEvents(MouseDevice& mouse) {
 }
 
 void TUIInput::resynchronizeKeyboard(KeyboardDevice& keyboard) {
+    // Validate that this device can answer EVIOCGKEY, then recompute the
+    // global state from every keyboard. This avoids one keyboard clearing
+    // keys that are currently held on another keyboard.
     std::array<unsigned long, wordCountForBit(KEY_MAX)> keyState{};
 
     if (::ioctl(
@@ -841,23 +871,48 @@ void TUIInput::resynchronizeKeyboard(KeyboardDevice& keyboard) {
         return;
     }
 
-    for (std::uint16_t code{}; code <= KEY_MAX; ++code) {
-        const Scancode scancode{fromLinuxCode(code)};
+    synchronizeKeyboardState();
+}
 
-        if (scancode == Scancode::Unknown) {
+void TUIInput::synchronizeKeyboardState() noexcept {
+    std::array<bool, scancodeCount_> combined{};
+
+    for (const KeyboardDevice& keyboard : keyboards_) {
+        std::array<unsigned long, wordCountForBit(KEY_MAX)> keyState{};
+
+        if (::ioctl(
+            keyboard.fileDescriptor,
+            EVIOCGKEY(sizeof(keyState)),
+            keyState.data()
+        ) == -1) {
             continue;
         }
 
-        const std::size_t index{static_cast<std::size_t>(scancode)};
-        const bool isDown{bitIsSet(keyState.data(), code)};
+        for (std::uint16_t code{}; code <= KEY_MAX; ++code) {
+            if (!bitIsSet(keyState.data(), code)) {
+                continue;
+            }
 
-        if (isDown && !down_[index]) {
-            down_[index] = true;
+            const Scancode scancode{mapLinuxCode(code)};
+            if (scancode == Scancode::Unknown) {
+                continue;
+            }
+
+            const std::size_t index{static_cast<std::size_t>(scancode)};
+            if (index < combined.size()) {
+                combined[index] = true;
+            }
+        }
+    }
+
+    for (std::size_t index{}; index < combined.size(); ++index) {
+        if (combined[index] && !down_[index]) {
             pressed_[index] = true;
-        } else if (!isDown && down_[index]) {
-            down_[index] = false;
+        } else if (!combined[index] && down_[index]) {
             released_[index] = true;
         }
+
+        down_[index] = combined[index];
     }
 }
 
@@ -966,7 +1021,7 @@ void TUIInput::registerEvent(
     std::uint16_t linuxCode,
     std::int32_t value
 ) noexcept {
-    const Scancode scancode{fromLinuxCode(linuxCode)};
+    const Scancode scancode{mapLinuxCode(linuxCode)};
 
     if (scancode == Scancode::Unknown) {
         return;
@@ -1116,7 +1171,37 @@ MouseButton TUIInput::fromLinuxMouseButton(
     }
 }
 
-Scancode TUIInput::fromLinuxCode(std::uint16_t linuxCode) noexcept {
+Scancode TUIInput::mapLinuxCode(std::uint16_t linuxCode) const noexcept {
+    switch (keyboardLayout_) {
+        case KeyboardLayout::Azerty:
+            return fromLinuxCodeAzerty(linuxCode);
+        case KeyboardLayout::Qwerty:
+        case KeyboardLayout::Physical:
+        default:
+            return fromLinuxCodePhysical(linuxCode);
+    }
+}
+
+Scancode TUIInput::fromLinuxCodeAzerty(std::uint16_t linuxCode) noexcept {
+    // Linux evdev codes describe physical key positions. These remaps make
+    // Scancode::KeyA..KeyZ represent the visible letters on a standard
+    // French AZERTY keyboard.
+    switch (linuxCode) {
+        case KEY_Q: return Scancode::KeyA;
+        case KEY_W: return Scancode::KeyZ;
+        case KEY_A: return Scancode::KeyQ;
+        case KEY_Z: return Scancode::KeyW;
+        case KEY_SEMICOLON: return Scancode::KeyM;
+
+        // On AZERTY the physical US 'M' position is punctuation, not letter M.
+        case KEY_M: return Scancode::Comma;
+
+        default:
+            return fromLinuxCodePhysical(linuxCode);
+    }
+}
+
+Scancode TUIInput::fromLinuxCodePhysical(std::uint16_t linuxCode) noexcept {
     switch (linuxCode) {
         case KEY_ESC: return Scancode::Escape;
         case KEY_ENTER: return Scancode::Enter;

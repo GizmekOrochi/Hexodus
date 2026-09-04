@@ -621,8 +621,10 @@ void Scene::renderUI(std::vector<TUI::Pixel>& colorBuffer, int width, int height
 
     for (const std::size_t elementIndex : order) {
         const UI::UIElement* const element{uiElements_[elementIndex].get()};
-        const auto origin{element->Origin()};
-        const auto ending{element->Ending()};
+        const UI::UIBounds bounds{element->resolvedBounds()};
+
+        const auto& origin{bounds.origin};
+        const auto& ending{bounds.ending};
 
         const int minX{std::clamp((origin[0] * width) / 1000, 0, width - 1)};
         const int minY{std::clamp((origin[1] * height) / 1000, 0, height - 1)};
