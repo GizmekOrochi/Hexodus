@@ -21,27 +21,14 @@ TUIRenderer::TUIRenderer()
       requestedTerminalMode_{TerminalMode::Automatic},
       activeTerminalMode_{detectTerminalMode()} {}
 
-bool TUIRenderer::EncodedCell::operator==(
-    const EncodedCell& other
-) const noexcept {
+bool TUIRenderer::EncodedCell::operator==( const EncodedCell& other) const noexcept {
     return glyph == other.glyph &&
-           TUIRenderer::sameColor(
-               foreground,
-               other.foreground
-           ) &&
-           TUIRenderer::sameColor(
-               background,
-               other.background
-           );
+           TUIRenderer::sameColor(foreground,other.foreground) &&
+           TUIRenderer::sameColor(background, other.background);
 }
 
-bool TUIRenderer::sameColor(
-    const RGBPanel& lhs,
-    const RGBPanel& rhs
-) noexcept {
-    return lhs.R_ == rhs.R_ &&
-           lhs.G_ == rhs.G_ &&
-           lhs.B_ == rhs.B_;
+bool TUIRenderer::sameColor(const RGBPanel& lhs, const RGBPanel& rhs) noexcept {
+    return lhs.R_ == rhs.R_ && lhs.G_ == rhs.G_ && lhs.B_ == rhs.B_;
 }
 
 int TUIRenderer::horizontalPixelsPerCell() const noexcept {
@@ -69,53 +56,26 @@ TerminalMode TUIRenderer::detectTerminalMode() noexcept {
 
     const std::string_view terminal{terminalEnvironment};
 
-    if (
-        terminal == "linux" ||
-        terminal.starts_with("linux-")
-    ) {
+    if (terminal == "linux" || terminal.starts_with("linux-")) {
         return TerminalMode::LinuxConsole;
     }
 
     return TerminalMode::UnicodeQuad;
 }
 
-int TUIRenderer::colorDistanceSquared(
-    const Pixel& lhs,
-    const Pixel& rhs
-) {
-    const int redDifference{
-        static_cast<int>(lhs.r) -
-        static_cast<int>(rhs.r)
-    };
+int TUIRenderer::colorDistanceSquared(const Pixel& lhs, const Pixel& rhs) {
+    const int redDifference{static_cast<int>(lhs.r) - static_cast<int>(rhs.r)};
+    const int greenDifference{static_cast<int>(lhs.g) - static_cast<int>(rhs.g)};
+    const int blueDifference{static_cast<int>(lhs.b) - static_cast<int>(rhs.b)};
 
-    const int greenDifference{
-        static_cast<int>(lhs.g) -
-        static_cast<int>(rhs.g)
-    };
-
-    const int blueDifference{
-        static_cast<int>(lhs.b) -
-        static_cast<int>(rhs.b)
-    };
-
-    return redDifference * redDifference +
-           greenDifference * greenDifference +
-           blueDifference * blueDifference;
+    return redDifference * redDifference + greenDifference * greenDifference + blueDifference * blueDifference;
 }
 
-RGBPanel TUIRenderer::toRGBPanel(
-    const Pixel& pixel
-) {
-    return RGBPanel{
-        pixel.r,
-        pixel.g,
-        pixel.b
-    };
+RGBPanel TUIRenderer::toRGBPanel(const Pixel& pixel) {
+    return RGBPanel{pixel.r, pixel.g, pixel.a};
 }
 
-std::string_view TUIRenderer::glyphForMask(
-    std::uint8_t mask
-) {
+std::string_view TUIRenderer::glyphForMask(std::uint8_t mask) {
     switch (mask & 0x0F) {
         case 0x0:
             return QuadBlock::empty;
@@ -170,63 +130,26 @@ std::string_view TUIRenderer::glyphForMask(
     }
 }
 
-TUIRenderer::EncodedCell TUIRenderer::encodeQuad(
-    const Pixel& topLeft,
-    const Pixel& topRight,
-    const Pixel& bottomLeft,
-    const Pixel& bottomRight
-) const {
-    const auto samePixel = [](
-        const Pixel& lhs,
-        const Pixel& rhs
-    ) noexcept {
-        return lhs.r == rhs.r &&
-               lhs.g == rhs.g &&
-               lhs.b == rhs.b &&
-               lhs.a == rhs.a;
+TUIRenderer::EncodedCell TUIRenderer::encodeQuad(const Pixel& topLeft, const Pixel& topRight, const Pixel& bottomLeft, const Pixel& bottomRight) const {
+    const auto samePixel = [](const Pixel& lhs, const Pixel& rhs) noexcept {
+        return lhs.r == rhs.r && lhs.g == rhs.g && lhs.b == rhs.b && lhs.a == rhs.a;
     };
 
-    if (
-        samePixel(topLeft, topRight) &&
-        samePixel(topLeft, bottomLeft) &&
-        samePixel(topLeft, bottomRight)
-    ) {
+    if (samePixel(topLeft, topRight) && samePixel(topLeft, bottomLeft) && samePixel(topLeft, bottomRight)) {
         const RGBPanel color{toRGBPanel(topLeft)};
 
-        return EncodedCell{
-            QuadBlock::empty,
-            color,
-            color
-        };
+        return EncodedCell{QuadBlock::empty, color, color};
     }
 
-    const std::array<Pixel, 4> pixels{
-        topLeft,
-        topRight,
-        bottomLeft,
-        bottomRight
-    };
+    const std::array<Pixel, 4> pixels{topLeft, topRight, bottomLeft, bottomRight};
 
     std::size_t backgroundIndex{};
     std::size_t foregroundIndex{};
     int greatestDistance{-1};
 
-    for (
-        std::size_t first{};
-        first < pixels.size();
-        ++first
-    ) {
-        for (
-            std::size_t second{first + 1};
-            second < pixels.size();
-            ++second
-        ) {
-            const int distance{
-                colorDistanceSquared(
-                    pixels[first],
-                    pixels[second]
-                )
-            };
+    for(std::size_t first{}; first < pixels.size(); ++first) {
+        for(std::size_t second{first + 1}; second < pixels.size(); ++second) {
+            const int distance{colorDistanceSquared(pixels[first], pixels[second])};
 
             if (distance > greatestDistance) {
                 greatestDistance = distance;
@@ -240,96 +163,46 @@ TUIRenderer::EncodedCell TUIRenderer::encodeQuad(
     const Pixel foreground{pixels[foregroundIndex]};
 
     if (greatestDistance <= 0) {
-        return EncodedCell{
-            QuadBlock::empty,
-            toRGBPanel(background),
-            toRGBPanel(background)
-        };
+        return EncodedCell{QuadBlock::empty,toRGBPanel(background), toRGBPanel(background)};
     }
 
     std::uint8_t mask{};
 
-    for (
-        std::size_t index{};
-        index < pixels.size();
-        ++index
-    ) {
-        const int distanceToBackground{
-            colorDistanceSquared(
-                pixels[index],
-                background
-            )
-        };
-
-        const int distanceToForeground{
-            colorDistanceSquared(
-                pixels[index],
-                foreground
-            )
-        };
+    for(std::size_t index{}; index < pixels.size(); ++index) {
+        const int distanceToBackground{colorDistanceSquared(pixels[index], background)};
+        const int distanceToForeground{colorDistanceSquared(pixels[index], foreground)};
 
         if (distanceToForeground < distanceToBackground) {
-            mask |= static_cast<std::uint8_t>(
-                1U << index
-            );
+            mask |= static_cast<std::uint8_t>(1U << index);
         }
     }
 
     if (mask == 0x0F) {
-        return EncodedCell{
-            QuadBlock::empty,
-            toRGBPanel(background),
-            toRGBPanel(foreground)
-        };
+        return EncodedCell{QuadBlock::empty, toRGBPanel(background), toRGBPanel(foreground)};
     }
 
-    return EncodedCell{
-        glyphForMask(mask),
-        toRGBPanel(foreground),
-        toRGBPanel(background)
-    };
+    return EncodedCell{glyphForMask(mask), toRGBPanel(foreground), toRGBPanel(background)};
 }
 
 void TUIRenderer::renderScenes() {
-    assert(
-        activeScene_ != nullptr &&
-        "TUIRenderer::renderScenes(): activeScene_ is null"
-    );
+    assert(activeScene_ != nullptr && "TUIRenderer::renderScenes(): activeScene_ is null");
 
     graphicManager_.update();
 
-    const int logicalWidth{
-        graphicManager_.getWidth() *
-        horizontalPixelsPerCell()
-    };
+    const int logicalWidth{graphicManager_.getWidth() * horizontalPixelsPerCell()};
+    const int logicalHeight{graphicManager_.getHeigth() * verticalPixelsPerCell()};
 
-    const int logicalHeight{
-        graphicManager_.getHeigth() *
-        verticalPixelsPerCell()
-    };
-
-    const std::size_t framebufferSize{
-        static_cast<std::size_t>(logicalWidth) *
-        static_cast<std::size_t>(logicalHeight)
-    };
+    const std::size_t framebufferSize{static_cast<std::size_t>(logicalWidth) * static_cast<std::size_t>(logicalHeight)};
 
     if (framebuffer_.size() != framebufferSize) {
         framebuffer_.resize(framebufferSize);
     }
 
-    std::fill(
-        framebuffer_.begin(),
-        framebuffer_.end(),
-        Pixel{0, 0, 0, 255}
-    );
+    std::fill(framebuffer_.begin(), framebuffer_.end(), Pixel{0, 0, 0, 255});
 
     std::size_t activeSceneIndex{scenes_.size()};
 
-    for (
-        std::size_t index{};
-        index < scenes_.size();
-        ++index
-    ) {
+    for(std::size_t index{}; index < scenes_.size(); ++index) {
         if (scenes_[index] == activeScene_) {
             activeSceneIndex = index;
             continue;
@@ -344,74 +217,29 @@ void TUIRenderer::renderScenes() {
 }
 
 void TUIRenderer::renderScene(
-    std::size_t index
-) {
+    std::size_t index) {
     Scene* scene{scenes_.at(index)};
 
     if (scene == nullptr) {
         return;
     }
 
-    const int logicalHeight{
-        graphicManager_.getHeigth() *
-        verticalPixelsPerCell()
-    };
+    const int logicalHeight{graphicManager_.getHeigth() * verticalPixelsPerCell()};
+    const int logicalWidth{graphicManager_.getWidth() * horizontalPixelsPerCell()};
 
-    const int logicalWidth{
-        graphicManager_.getWidth() *
-        horizontalPixelsPerCell()
-    };
+    const int sceneOriginX{(static_cast<int>(scene->Origin()[0]) * logicalWidth) / 100};
+    const int sceneOriginY{(static_cast<int>(scene->Origin()[1]) * logicalHeight) / 100};
+    const int sceneEndingX{(static_cast<int>(scene->Ending()[0]) * logicalWidth) / 100};
+    const int sceneEndingY{(static_cast<int>(scene->Ending()[1]) * logicalHeight) / 100};
 
-    const int sceneOriginX{
-        (
-            static_cast<int>(scene->Origin()[0]) *
-            logicalWidth
-        ) /
-        100
-    };
-
-    const int sceneOriginY{
-        (
-            static_cast<int>(scene->Origin()[1]) *
-            logicalHeight
-        ) /
-        100
-    };
-
-    const int sceneEndingX{
-        (
-            static_cast<int>(scene->Ending()[0]) *
-            logicalWidth
-        ) /
-        100
-    };
-
-    const int sceneEndingY{
-        (
-            static_cast<int>(scene->Ending()[1]) *
-            logicalHeight
-        ) /
-        100
-    };
-
-    const int sceneWidth{
-        sceneEndingX - sceneOriginX
-    };
-
-    const int sceneHeight{
-        sceneEndingY - sceneOriginY
-    };
+    const int sceneWidth{sceneEndingX - sceneOriginX};
+    const int sceneHeight{sceneEndingY - sceneOriginY};
 
     if (sceneWidth <= 0 || sceneHeight <= 0) {
         return;
     }
 
-    const std::vector<Pixel> sceneBuffer{
-        scene->convertScene(
-            logicalHeight,
-            logicalWidth
-        )
-    };
+    const std::vector<Pixel> sceneBuffer{scene->convertScene(logicalHeight, logicalWidth)};
 
     const std::size_t expectedSize{
         static_cast<std::size_t>(sceneWidth) *
@@ -419,102 +247,54 @@ void TUIRenderer::renderScene(
     };
 
     if (sceneBuffer.size() < expectedSize) {
-        throw std::runtime_error(
-            "TUIRenderer::renderScene(): "
-            "scene buffer is too small"
-        );
+        throw std::runtime_error("TUIRenderer::renderScene(): scene buffer is too small");
     }
 
-    for (int y{}; y < sceneHeight; ++y) {
-        for (int x{}; x < sceneWidth; ++x) {
+    for(int y{}; y < sceneHeight; ++y) {
+        for(int x{}; x < sceneWidth; ++x) {
             const int screenX{sceneOriginX + x};
             const int screenY{sceneOriginY + y};
 
-            if (
-                screenX < 0 ||
-                screenX >= logicalWidth ||
-                screenY < 0 ||
-                screenY >= logicalHeight
-            ) {
+            if (screenX < 0 || screenX >= logicalWidth || screenY < 0 || screenY >= logicalHeight) {
                 continue;
             }
 
-            const Pixel source{
-                sceneBuffer[
-                    static_cast<std::size_t>(
-                        y * sceneWidth + x
-                    )
-                ]
-            };
+            const Pixel source{sceneBuffer[static_cast<std::size_t>(y * sceneWidth + x)]};
 
             if (source.a == 0) {
                 continue;
             }
 
-            framebuffer_[
-                static_cast<std::size_t>(
-                    screenY * logicalWidth + screenX
-                )
-            ] = source;
+            framebuffer_[static_cast<std::size_t>(screenY * logicalWidth + screenX)] = source;
         }
     }
 }
 
 void TUIRenderer::applyPixelCommands() {
-    const int width{
-        graphicManager_.getWidth() *
-        horizontalPixelsPerCell()
-    };
+    const int width{graphicManager_.getWidth() * horizontalPixelsPerCell()};
+    const int height{graphicManager_.getHeigth() * verticalPixelsPerCell()};
 
-    const int height{
-        graphicManager_.getHeigth() *
-        verticalPixelsPerCell()
-    };
-
-    for (const PixelCommand& command : pixelCommands_) {
-        if (
-            command.x < 0 ||
-            command.x >= width ||
-            command.y < 0 ||
-            command.y >= height
-        ) {
+    for(const PixelCommand& command : pixelCommands_) {
+        if (command.x < 0 || command.x >= width || command.y < 0 || command.y >= height) {
             continue;
         }
 
-        const std::size_t pixelIndex{
-            static_cast<std::size_t>(
-                command.y * width + command.x
-            )
-        };
+        const std::size_t pixelIndex{static_cast<std::size_t>(command.y * width + command.x)};
 
-        if (
-            command.mode ==
-            PixelDrawingMode::Contrasted
-        ) {
-            if (
-                activeTerminalMode_ ==
-                TerminalMode::UnicodeQuad
-            ) {
-                framebuffer_[pixelIndex] =
-                    Pixel{255, 255, 255, 255};
+        if (command.mode == PixelDrawingMode::Contrasted) {
+            if (activeTerminalMode_ == TerminalMode::UnicodeQuad) {
+                framebuffer_[pixelIndex] = Pixel{255, 255, 255, 255};
             } else {
-                const Pixel& background{
-                    framebuffer_[pixelIndex]
-                };
+                const Pixel& background{framebuffer_[pixelIndex]};
 
-                const int luminance{
-                    (
+                const int luminance{(
                         299 * static_cast<int>(background.r) +
                         587 * static_cast<int>(background.g) +
                         114 * static_cast<int>(background.b)
-                    ) /
-                    1000
+                    ) / 1000
                 };
 
-                framebuffer_[pixelIndex] =
-                    luminance >= 128
-                        ? Pixel{0, 0, 0, 255}
-                        : Pixel{255, 255, 255, 255};
+                framebuffer_[pixelIndex] = luminance >= 128 ? Pixel{0, 0, 0, 255} : Pixel{255, 255, 255, 255};
             }
         } else {
             framebuffer_[pixelIndex] = command.color;
@@ -524,32 +304,16 @@ void TUIRenderer::applyPixelCommands() {
     pixelCommands_.clear();
 }
 
-void TUIRenderer::encodeFramebuffer(
-    int terminalWidth,
-    int terminalHeight
-) {
-    if (
-        activeTerminalMode_ ==
-        TerminalMode::LinuxConsole
-    ) {
-        encodeLinuxConsoleFramebuffer(
-            terminalWidth,
-            terminalHeight
-        );
-
+void TUIRenderer::encodeFramebuffer(int terminalWidth, int terminalHeight) {
+    if (activeTerminalMode_ == TerminalMode::LinuxConsole) {
+        encodeLinuxConsoleFramebuffer(terminalWidth, terminalHeight);
         return;
     }
 
-    encodeUnicodeFramebuffer(
-        terminalWidth,
-        terminalHeight
-    );
+    encodeUnicodeFramebuffer(terminalWidth, terminalHeight);
 }
 
-void TUIRenderer::encodeUnicodeFramebuffer(
-    int terminalWidth,
-    int terminalHeight
-) {
+void TUIRenderer::encodeUnicodeFramebuffer(int terminalWidth, int terminalHeight) {
     const int logicalWidth{terminalWidth * 2};
 
     const std::size_t cellCount{
@@ -559,136 +323,46 @@ void TUIRenderer::encodeUnicodeFramebuffer(
 
     currentCells_.resize(cellCount);
 
-    for (
-        int cellY{};
-        cellY < terminalHeight;
-        ++cellY
-    ) {
-        for (
-            int cellX{};
-            cellX < terminalWidth;
-            ++cellX
-        ) {
+    for(int cellY{}; cellY < terminalHeight; ++cellY) {
+        for(int cellX{}; cellX < terminalWidth; ++cellX) {
             const int sourceX{cellX * 2};
             const int sourceY{cellY * 2};
 
-            const Pixel& topLeft{
-                framebuffer_[
-                    static_cast<std::size_t>(
-                        sourceY * logicalWidth +
-                        sourceX
-                    )
-                ]
-            };
+            const Pixel& topLeft{framebuffer_[static_cast<std::size_t>(sourceY * logicalWidth + sourceX)]};
+            const Pixel& topRight{framebuffer_[static_cast<std::size_t>(sourceY * logicalWidth + sourceX + 1)]};
+            const Pixel& bottomLeft{framebuffer_[static_cast<std::size_t>((sourceY + 1) * logicalWidth + sourceX)]};
+            const Pixel& bottomRight{framebuffer_[static_cast<std::size_t>((sourceY + 1) * logicalWidth + sourceX + 1)]};
 
-            const Pixel& topRight{
-                framebuffer_[
-                    static_cast<std::size_t>(
-                        sourceY * logicalWidth +
-                        sourceX +
-                        1
-                    )
-                ]
-            };
-
-            const Pixel& bottomLeft{
-                framebuffer_[
-                    static_cast<std::size_t>(
-                        (sourceY + 1) *
-                        logicalWidth +
-                        sourceX
-                    )
-                ]
-            };
-
-            const Pixel& bottomRight{
-                framebuffer_[
-                    static_cast<std::size_t>(
-                        (sourceY + 1) *
-                        logicalWidth +
-                        sourceX +
-                        1
-                    )
-                ]
-            };
-
-            currentCells_[
-                static_cast<std::size_t>(
-                    cellY * terminalWidth +
-                    cellX
-                )
-            ] = encodeQuad(
-                topLeft,
-                topRight,
-                bottomLeft,
-                bottomRight
-            );
+            currentCells_[static_cast<std::size_t>(cellY * terminalWidth + cellX)] = 
+                encodeQuad(topLeft, topRight, bottomLeft, bottomRight);
         }
     }
 }
 
-void TUIRenderer::encodeLinuxConsoleFramebuffer(
-    int terminalWidth,
-    int terminalHeight
-) {
-    const std::size_t cellCount{
-        static_cast<std::size_t>(terminalWidth) *
-        static_cast<std::size_t>(terminalHeight)
-    };
+void TUIRenderer::encodeLinuxConsoleFramebuffer(int terminalWidth,int terminalHeight) { const std::size_t cellCount{
+    static_cast<std::size_t>(terminalWidth) * static_cast<std::size_t>(terminalHeight)};
 
     currentCells_.resize(cellCount);
 
-    for (
-        int cellY{};
-        cellY < terminalHeight;
-        ++cellY
-    ) {
-        for (
-            int cellX{};
-            cellX < terminalWidth;
-            ++cellX
-        ) {
+    for(int cellY{}; cellY < terminalHeight; ++cellY) {
+        for(int cellX{}; cellX < terminalWidth; ++cellX) {
             const Pixel& pixel{
-                framebuffer_[
-                    static_cast<std::size_t>(
-                        cellY * terminalWidth +
-                        cellX
-                    )
-                ]
+                framebuffer_[static_cast<std::size_t>(cellY * terminalWidth + cellX)]
             };
 
             const RGBPanel color{toRGBPanel(pixel)};
 
-            currentCells_[
-                static_cast<std::size_t>(
-                    cellY * terminalWidth +
-                    cellX
-                )
-            ] = EncodedCell{
-                " ",
-                color,
-                color
-            };
+            currentCells_[static_cast<std::size_t>(cellY * terminalWidth +cellX)] = 
+                EncodedCell{" ", color, color};
         }
     }
 }
 
-void TUIRenderer::appendCell(
-    const EncodedCell& cell,
-    RGBPanel& lastForeground,
-    RGBPanel& lastBackground,
-    bool& hasLastColors
-) {
+void TUIRenderer::appendCell(const EncodedCell& cell, RGBPanel& lastForeground, RGBPanel& lastBackground, bool& hasLastColors) {
     const bool sameColors{
         hasLastColors &&
-        sameColor(
-            cell.foreground,
-            lastForeground
-        ) &&
-        sameColor(
-            cell.background,
-            lastBackground
-        )
+        sameColor(cell.foreground, lastForeground) &&
+        sameColor(cell.background, lastBackground)
     };
 
     if (sameColors) {
@@ -707,12 +381,7 @@ void TUIRenderer::appendCell(
     hasLastColors = true;
 }
 
-void TUIRenderer::drawFullFrame(
-    int terminalWidth,
-    int terminalHeight
-) {
-    (void)terminalWidth;
-    (void)terminalHeight;
+void TUIRenderer::drawFullFrame(int terminalWidth, int terminalHeight) {
 
     graphicManager_.addCursorHome();
 
@@ -720,7 +389,7 @@ void TUIRenderer::drawFullFrame(
     RGBPanel lastBackground{};
     bool hasLastColors{false};
 
-    for (const EncodedCell& cell : currentCells_) {
+    for(const EncodedCell& cell : currentCells_) {
         appendCell(
             cell,
             lastForeground,
@@ -730,29 +399,19 @@ void TUIRenderer::drawFullFrame(
     }
 }
 
-void TUIRenderer::drawDifferentialFrame(
-    int terminalWidth,
-    int terminalHeight
-) {
+void TUIRenderer::drawDifferentialFrame(int terminalWidth, int terminalHeight) {
     RGBPanel lastForeground{};
     RGBPanel lastBackground{};
     bool hasLastColors{false};
 
-    for (int y{}; y < terminalHeight; ++y) {
+    for(int y{}; y < terminalHeight; ++y) {
         int x{};
 
         while (x < terminalWidth) {
             while (x < terminalWidth) {
-                const std::size_t index{
-                    static_cast<std::size_t>(
-                        y * terminalWidth + x
-                    )
-                };
+                const std::size_t index{static_cast<std::size_t>(y * terminalWidth + x)};
 
-                if (
-                    currentCells_[index] !=
-                    previousCells_[index]
-                ) {
+                if (currentCells_[index] != previousCells_[index]) {
                     break;
                 }
 
@@ -766,117 +425,63 @@ void TUIRenderer::drawDifferentialFrame(
             const int runStart{x};
 
             while (x < terminalWidth) {
-                const std::size_t index{
-                    static_cast<std::size_t>(
-                        y * terminalWidth + x
-                    )
-                };
+                const std::size_t index{static_cast<std::size_t>(y * terminalWidth + x)};
 
-                if (
-                    currentCells_[index] ==
-                    previousCells_[index]
-                ) {
+                if (currentCells_[index] == previousCells_[index]) {
                     break;
                 }
 
                 ++x;
             }
 
-            // ANSI terminal coordinates are one-based.
-            graphicManager_.addCursorMove(
-                y + 1,
-                runStart + 1
-            );
+            graphicManager_.addCursorMove(y + 1, runStart + 1);
 
-            for (
-                int runX{runStart};
-                runX < x;
-                ++runX
-            ) {
-                const std::size_t index{
-                    static_cast<std::size_t>(
-                        y * terminalWidth +
-                        runX
-                    )
-                };
+            for(int runX{runStart}; runX < x; ++runX) {
+                const std::size_t index{static_cast<std::size_t>(y * terminalWidth + runX)};
 
-                appendCell(
-                    currentCells_[index],
-                    lastForeground,
-                    lastBackground,
-                    hasLastColors
-                );
+                appendCell(currentCells_[index], lastForeground, lastBackground, hasLastColors);
             }
         }
     }
 }
 
-void TUIRenderer::drawPixel(
-    int x,
-    int y,
-    Pixel color
-) {
+void TUIRenderer::drawPixel(int x, int y,
+    Pixel color) {
     pixelCommands_.push_back(
-        PixelCommand{
-            x,
-            y,
-            color,
-            PixelDrawingMode::Normal
-        }
+        PixelCommand{x, y, color, PixelDrawingMode::Normal}
     );
 }
 
-void TUIRenderer::drawContrastedPixel(
-    int x,
-    int y
-) {
+void TUIRenderer::drawContrastedPixel(int x, int y) {
     pixelCommands_.push_back(
-        PixelCommand{
-            x,
-            y,
-            Pixel{255, 255, 255, 255},
-            PixelDrawingMode::Contrasted
-        }
+        PixelCommand{x, y, Pixel{255, 255, 255, 255}, PixelDrawingMode::Contrasted}
     );
 }
 
 int TUIRenderer::logicalWidth() {
     graphicManager_.update();
 
-    return graphicManager_.getWidth() *
-           horizontalPixelsPerCell();
+    return graphicManager_.getWidth() * horizontalPixelsPerCell();
 }
 
 int TUIRenderer::logicalHeight() {
     graphicManager_.update();
 
-    return graphicManager_.getHeigth() *
-           verticalPixelsPerCell();
+    return graphicManager_.getHeigth() * verticalPixelsPerCell();
 }
 
 void TUIRenderer::drawBuffer() {
     renderScenes();
     applyPixelCommands();
 
-    const int terminalHeight{
-        graphicManager_.getHeigth()
-    };
+    const int terminalHeight{graphicManager_.getHeigth()};
+    const int terminalWidth{graphicManager_.getWidth()};
 
-    const int terminalWidth{
-        graphicManager_.getWidth()
-    };
-
-    if (
-        terminalHeight <= 0 ||
-        terminalWidth <= 0
-    ) {
+    if (terminalHeight <= 0 || terminalWidth <= 0) {
         return;
     }
 
-    const bool resized{
-        terminalWidth != previousTerminalWidth_ ||
-        terminalHeight != previousTerminalHeight_
-    };
+    const bool resized{terminalWidth != previousTerminalWidth_ || terminalHeight != previousTerminalHeight_};
 
     if (resized) {
         previousTerminalWidth_ = terminalWidth;
@@ -884,34 +489,17 @@ void TUIRenderer::drawBuffer() {
         previousCells_.clear();
         forceFullRedraw_ = true;
 
-        graphicManager_.reserveCommand(
-            static_cast<std::size_t>(terminalWidth) *
-            static_cast<std::size_t>(terminalHeight) *
-            24U
-        );
+        graphicManager_.reserveCommand(static_cast<std::size_t>(terminalWidth) * static_cast<std::size_t>(terminalHeight) * 24U);
     }
 
-    encodeFramebuffer(
-        terminalWidth,
-        terminalHeight
-    );
+    encodeFramebuffer(terminalWidth, terminalHeight);
 
-    std::size_t changedCells{
-        currentCells_.size()
-    };
+    std::size_t changedCells{currentCells_.size()};
 
-    if (
-        !forceFullRedraw_ &&
-        previousCells_.size() ==
-        currentCells_.size()
-    ) {
+    if (!forceFullRedraw_ && previousCells_.size() == currentCells_.size()) {
         changedCells = 0;
 
-        for (
-            std::size_t index{};
-            index < currentCells_.size();
-            ++index
-        ) {
+        for(std::size_t index{}; index < currentCells_.size(); ++index) {
             if (
                 currentCells_[index] !=
                 previousCells_[index]
@@ -921,41 +509,24 @@ void TUIRenderer::drawBuffer() {
         }
     }
 
-    if (
-        !forceFullRedraw_ &&
-        changedCells == 0U
-    ) {
+    if (!forceFullRedraw_ &&changedCells == 0U) {
         previousCells_.swap(currentCells_);
         return;
     }
 
-    const float changedRatio{
-        currentCells_.empty()
-            ? 1.0f
-            : static_cast<float>(changedCells) /
-              static_cast<float>(currentCells_.size())
-    };
+    const float changedRatio{currentCells_.empty() ? 1.0f : static_cast<float>(changedCells) /  static_cast<float>(currentCells_.size())};
 
     const bool fullRedraw{
-        forceFullRedraw_ ||
-        previousCells_.size() !=
-            currentCells_.size() ||
-        changedRatio >=
-            fullRedrawThreshold_
+        forceFullRedraw_ || previousCells_.size() !=
+        currentCells_.size() || changedRatio >= fullRedrawThreshold_
     };
 
     graphicManager_.beginFrame();
 
     if (fullRedraw) {
-        drawFullFrame(
-            terminalWidth,
-            terminalHeight
-        );
+        drawFullFrame(terminalWidth, terminalHeight);
     } else {
-        drawDifferentialFrame(
-            terminalWidth,
-            terminalHeight
-        );
+        drawDifferentialFrame(terminalWidth, terminalHeight);
     }
 
     graphicManager_.endFrame();
@@ -966,13 +537,9 @@ void TUIRenderer::drawBuffer() {
 }
 
 void TUIRenderer::InitScene(
-    Scene* scene
-) {
+    Scene* scene) {
     if (scene == nullptr) {
-        throw std::invalid_argument(
-            "TUIRenderer::InitScene(): "
-            "scene is null"
-        );
+        throw std::invalid_argument("TUIRenderer::InitScene(): scene is null");
     }
 
     scenes_.push_back(scene);
@@ -980,23 +547,16 @@ void TUIRenderer::InitScene(
     invalidate();
 }
 
-void TUIRenderer::setActiveScene(
-    Scene* scene
-) {
+void TUIRenderer::setActiveScene(Scene* scene) {
     if (scene == nullptr) {
-        throw std::invalid_argument(
-            "TUIRenderer::setActiveScene(): "
-            "scene is null"
-        );
+        throw std::invalid_argument("TUIRenderer::setActiveScene(): scene is null");
     }
 
     activeScene_ = scene;
     invalidate();
 }
 
-void TUIRenderer::setTerminalMode(
-    TerminalMode mode
-) {
+void TUIRenderer::setTerminalMode(TerminalMode mode) {
     requestedTerminalMode_ = mode;
 
     if (mode == TerminalMode::Automatic) {
@@ -1019,14 +579,8 @@ TerminalMode TUIRenderer::terminalMode() const noexcept {
     return activeTerminalMode_;
 }
 
-void TUIRenderer::setFullRedrawThreshold(
-    float threshold
-) {
-    fullRedrawThreshold_ = std::clamp(
-        threshold,
-        0.0f,
-        1.0f
-    );
+void TUIRenderer::setFullRedrawThreshold(float threshold) {
+    fullRedrawThreshold_ = std::clamp(threshold, 0.0f, 1.0f);
 }
 
 void TUIRenderer::invalidate() {
