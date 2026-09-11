@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <stdexcept>
 #include <string_view>
+#include <limits>
 
 namespace TUI {
 
@@ -25,6 +26,10 @@ bool TUIRenderer::EncodedCell::operator==( const EncodedCell& other) const noexc
     return glyph == other.glyph &&
            TUIRenderer::sameColor(foreground,other.foreground) &&
            TUIRenderer::sameColor(background, other.background);
+}
+
+bool TUIRenderer::EncodedCell::operator!=(const EncodedCell& other) const noexcept {
+    return !(*this == other);
 }
 
 bool TUIRenderer::sameColor(const RGBPanel& lhs, const RGBPanel& rhs) noexcept {
@@ -71,116 +76,39 @@ int TUIRenderer::colorDistanceSquared(const Pixel& lhs, const Pixel& rhs) {
     return redDifference * redDifference + greenDifference * greenDifference + blueDifference * blueDifference;
 }
 
-RGBPanel TUIRenderer::toRGBPanel(const Pixel& pixel) {
-    return RGBPanel{pixel.r, pixel.g, pixel.a};
-}
-
 std::string_view TUIRenderer::glyphForMask(std::uint8_t mask) {
     switch (mask & 0x0F) {
-        case 0x0:
-            return QuadBlock::empty;
+        case 0x0: return Glyphs::empty;
 
-        case 0x1:
-            return QuadBlock::tl;
+        case 0x1: return Glyphs::tl;
+        case 0x2: return Glyphs::tr;
+        case 0x3: return Glyphs::upperHalf;
 
-        case 0x2:
-            return QuadBlock::tr;
+        case 0x4: return Glyphs::bl;
+        case 0x5: return Glyphs::leftHalf;
+        case 0x6: return Glyphs::tr_bl;
+        case 0x7: return Glyphs::tl_tr_bl;
 
-        case 0x3:
-            return QuadBlock::tl_tr;
+        case 0x8: return Glyphs::br;
+        case 0x9: return Glyphs::tl_br;
+        case 0xA: return Glyphs::rightHalf;
+        case 0xB: return Glyphs::tl_tr_br;
 
-        case 0x4:
-            return QuadBlock::bl;
+        case 0xC: return Glyphs::lowerHalf;
+        case 0xD: return Glyphs::tl_bl_br;
+        case 0xE: return Glyphs::tr_bl_br;
 
-        case 0x5:
-            return QuadBlock::tl_bl;
+        case 0xF: return Glyphs::full;
 
-        case 0x6:
-            return QuadBlock::tr_bl;
-
-        case 0x7:
-            return QuadBlock::tl_tr_bl;
-
-        case 0x8:
-            return QuadBlock::br;
-
-        case 0x9:
-            return QuadBlock::tl_br;
-
-        case 0xA:
-            return QuadBlock::tr_br;
-
-        case 0xB:
-            return QuadBlock::tl_tr_br;
-
-        case 0xC:
-            return QuadBlock::bl_br;
-
-        case 0xD:
-            return QuadBlock::tl_bl_br;
-
-        case 0xE:
-            return QuadBlock::tr_bl_br;
-
-        case 0xF:
-            return QuadBlock::full;
-
-        default:
-            return QuadBlock::empty;
+        default: return Glyphs::empty;
     }
 }
 
-TUIRenderer::EncodedCell TUIRenderer::encodeQuad(const Pixel& topLeft, const Pixel& topRight, const Pixel& bottomLeft, const Pixel& bottomRight) const {
-    const auto samePixel = [](const Pixel& lhs, const Pixel& rhs) noexcept {
-        return lhs.r == rhs.r && lhs.g == rhs.g && lhs.b == rhs.b && lhs.a == rhs.a;
-    };
+RGBPanel TUIRenderer::toRGBPanel(const Pixel& pixel) {
+    return RGBPanel{pixel.r, pixel.g, pixel.b};
+}
 
-    if (samePixel(topLeft, topRight) && samePixel(topLeft, bottomLeft) && samePixel(topLeft, bottomRight)) {
-        const RGBPanel color{toRGBPanel(topLeft)};
-
-        return EncodedCell{QuadBlock::empty, color, color};
-    }
-
-    const std::array<Pixel, 4> pixels{topLeft, topRight, bottomLeft, bottomRight};
-
-    std::size_t backgroundIndex{};
-    std::size_t foregroundIndex{};
-    int greatestDistance{-1};
-
-    for(std::size_t first{}; first < pixels.size(); ++first) {
-        for(std::size_t second{first + 1}; second < pixels.size(); ++second) {
-            const int distance{colorDistanceSquared(pixels[first], pixels[second])};
-
-            if (distance > greatestDistance) {
-                greatestDistance = distance;
-                backgroundIndex = first;
-                foregroundIndex = second;
-            }
-        }
-    }
-
-    const Pixel background{pixels[backgroundIndex]};
-    const Pixel foreground{pixels[foregroundIndex]};
-
-    if (greatestDistance <= 0) {
-        return EncodedCell{QuadBlock::empty,toRGBPanel(background), toRGBPanel(background)};
-    }
-
-    std::uint8_t mask{};
-
-    for(std::size_t index{}; index < pixels.size(); ++index) {
-        const int distanceToBackground{colorDistanceSquared(pixels[index], background)};
-        const int distanceToForeground{colorDistanceSquared(pixels[index], foreground)};
-
-        if (distanceToForeground < distanceToBackground) {
-            mask |= static_cast<std::uint8_t>(1U << index);
-        }
-    }
-
-    if (mask == 0x0F) {
-        return EncodedCell{QuadBlock::empty, toRGBPanel(background), toRGBPanel(foreground)};
-    }
-
+TUIRenderer::EncodedCell TUIRenderer::encodeCell(std::uint8_t mask,const Pixel& foreground, const Pixel& background) const {
     return EncodedCell{glyphForMask(mask), toRGBPanel(foreground), toRGBPanel(background)};
 }
 
@@ -316,15 +244,13 @@ void TUIRenderer::encodeFramebuffer(int terminalWidth, int terminalHeight) {
 void TUIRenderer::encodeUnicodeFramebuffer(int terminalWidth, int terminalHeight) {
     const int logicalWidth{terminalWidth * 2};
 
-    const std::size_t cellCount{
-        static_cast<std::size_t>(terminalWidth) *
-        static_cast<std::size_t>(terminalHeight)
-    };
+    const std::size_t cellCount{static_cast<std::size_t>(terminalWidth) * static_cast<std::size_t>(terminalHeight)};
 
     currentCells_.resize(cellCount);
 
-    for(int cellY{}; cellY < terminalHeight; ++cellY) {
-        for(int cellX{}; cellX < terminalWidth; ++cellX) {
+    for (int cellY{}; cellY < terminalHeight; ++cellY) {
+        for (int cellX{}; cellX < terminalWidth; ++cellX) {
+
             const int sourceX{cellX * 2};
             const int sourceY{cellY * 2};
 
@@ -333,8 +259,43 @@ void TUIRenderer::encodeUnicodeFramebuffer(int terminalWidth, int terminalHeight
             const Pixel& bottomLeft{framebuffer_[static_cast<std::size_t>((sourceY + 1) * logicalWidth + sourceX)]};
             const Pixel& bottomRight{framebuffer_[static_cast<std::size_t>((sourceY + 1) * logicalWidth + sourceX + 1)]};
 
-            currentCells_[static_cast<std::size_t>(cellY * terminalWidth + cellX)] = 
-                encodeQuad(topLeft, topRight, bottomLeft, bottomRight);
+            const Pixel* pixels[4]{&topLeft, &topRight, &bottomLeft, &bottomRight};
+
+            std::size_t backgroundIndex{};
+            std::size_t foregroundIndex{};
+            int greatestDistance{-1};
+
+            for (std::size_t first{}; first < 4; ++first) {
+                for (std::size_t second{first + 1}; second < 4; ++second) {
+
+                    const int distance{colorDistanceSquared(*pixels[first], *pixels[second])};
+
+                    if (distance > greatestDistance) {
+                        greatestDistance = distance;
+                        backgroundIndex = first;
+                        foregroundIndex = second;
+                    }
+                }
+            }
+
+            const Pixel& background{*pixels[backgroundIndex]};
+            const Pixel& foreground{*pixels[foregroundIndex]};
+
+            std::uint8_t mask{};
+
+            for (std::size_t index{}; index < 4; ++index) {
+
+                const int distanceToBackground{colorDistanceSquared(*pixels[index], background)};
+                const int distanceToForeground{colorDistanceSquared(*pixels[index], foreground)};
+
+                if (distanceToForeground <distanceToBackground) {
+                    mask |= static_cast<std::uint8_t>(1U << index);
+                }
+            }
+
+            const std::size_t cellIndex{static_cast<std::size_t>(cellY * terminalWidth + cellX)};
+
+            currentCells_[cellIndex] = encodeCell(mask, foreground, background);
         }
     }
 }
@@ -370,11 +331,7 @@ void TUIRenderer::appendCell(const EncodedCell& cell, RGBPanel& lastForeground, 
         return;
     }
 
-    graphicManager_.addPixel(
-        cell.glyph,
-        cell.foreground,
-        cell.background
-    );
+    graphicManager_.addPixel(cell.glyph, cell.foreground, cell.background);
 
     lastForeground = cell.foreground;
     lastBackground = cell.background;
@@ -390,12 +347,7 @@ void TUIRenderer::drawFullFrame(int terminalWidth, int terminalHeight) {
     bool hasLastColors{false};
 
     for(const EncodedCell& cell : currentCells_) {
-        appendCell(
-            cell,
-            lastForeground,
-            lastBackground,
-            hasLastColors
-        );
+        appendCell(cell, lastForeground, lastBackground, hasLastColors);
     }
 }
 
@@ -447,15 +399,11 @@ void TUIRenderer::drawDifferentialFrame(int terminalWidth, int terminalHeight) {
 
 void TUIRenderer::drawPixel(int x, int y,
     Pixel color) {
-    pixelCommands_.push_back(
-        PixelCommand{x, y, color, PixelDrawingMode::Normal}
-    );
+    pixelCommands_.push_back(PixelCommand{x, y, color, PixelDrawingMode::Normal});
 }
 
 void TUIRenderer::drawContrastedPixel(int x, int y) {
-    pixelCommands_.push_back(
-        PixelCommand{x, y, Pixel{255, 255, 255, 255}, PixelDrawingMode::Contrasted}
-    );
+    pixelCommands_.push_back(PixelCommand{x, y, Pixel{255, 255, 255, 255}, PixelDrawingMode::Contrasted});
 }
 
 int TUIRenderer::logicalWidth() {
