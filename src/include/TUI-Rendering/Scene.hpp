@@ -21,6 +21,7 @@ struct ClippingPoint {
 
 class Scene {
 private:
+    friend struct SceneTestAccess;
     std::array<uint8_t, 2> origin_;
     std::array<uint8_t, 2> ending_;
     TUI::Pixel backgroundColor_;

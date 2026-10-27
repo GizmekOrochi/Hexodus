@@ -72,7 +72,7 @@ int TUIRenderer::colorDistanceSquared(const Pixel& lhs, const Pixel& rhs) {
 }
 
 RGBPanel TUIRenderer::toRGBPanel(const Pixel& pixel) {
-    return RGBPanel{pixel.r, pixel.g, pixel.a};
+    return RGBPanel{pixel.r, pixel.g, pixel.b};
 }
 
 std::string_view TUIRenderer::glyphForMask(std::uint8_t mask) {
@@ -130,7 +130,7 @@ std::string_view TUIRenderer::glyphForMask(std::uint8_t mask) {
     }
 }
 
-TUIRenderer::EncodedCell TUIRenderer::encodeQuad(const Pixel& topLeft, const Pixel& topRight, const Pixel& bottomLeft, const Pixel& bottomRight) const {
+TUIRenderer::EncodedCell TUIRenderer::encodeQuad(const Pixel& topLeft, const Pixel& topRight, const Pixel& bottomLeft, const Pixel& bottomRight) {
     const auto samePixel = [](const Pixel& lhs, const Pixel& rhs) noexcept {
         return lhs.r == rhs.r && lhs.g == rhs.g && lhs.b == rhs.b && lhs.a == rhs.a;
     };

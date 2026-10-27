@@ -1,4 +1,7 @@
 #include "../../include/TUI-Coloring/Colorator.hpp"
+#include <unistd.h>
+#include <cerrno>
+#include <stdexcept>
 
 namespace TUI {
 
@@ -42,77 +45,32 @@ void Colorator::SetRGBColor(RGBPanel colorFront, RGBPanel colorBack) {
     RGBBack_ = colorBack;
 }
 
+namespace {
+std::string ansi16(RGBPanel color, bool background) {
+    const int index = static_cast<int>(transfor16ColorMod(color));
+    const int code = (index < 8 ? (background ? 40 : 30) : (background ? 100 : 90)) + index % 8;
+    return "\x1b[" + std::to_string(code) + "m";
+}
+}
+
 void Colorator::ApplyColor() {
-    switch (ColorMod_) {
-    case TUIcolorModAvalible::_16Colors: {
-        std::string colorFront{std::format(ActionTable::string_16ColorFGMod, static_cast<int>(transfor16ColorMod(RGBFront_)))};
-        write(STDOUT_FILENO, colorFront.data(), colorFront.size());
-        std::string colorBack{std::format(ActionTable::string_16ColorBGMod, static_cast<int>(transfor16ColorMod(RGBBack_)))};
-        write(STDOUT_FILENO, colorBack.data(), colorBack.size());
-        break;
-    }
-
-    case TUIcolorModAvalible::_256Colors: { // not suported yet 16 color mod logic
-        std::string colorFront{std::format(ActionTable::string_16ColorFGMod, static_cast<int>(transfor16ColorMod(RGBFront_)))};
-        write(STDOUT_FILENO, colorFront.data(), colorFront.size());
-        std::string colorBack{std::format(ActionTable::string_16ColorBGMod, static_cast<int>(transfor16ColorMod(RGBBack_)))};
-        write(STDOUT_FILENO, colorBack.data(), colorBack.size());
-        break;
-    }
-
-    case TUIcolorModAvalible::_trueColor: {
-        std::string colorFront{std::format(ActionTable::string_trueColorFGMod, static_cast<int>(RGBFront_.R_), static_cast<int>(RGBFront_.G_), static_cast<int>(RGBFront_.B_))};
-        write(STDOUT_FILENO, colorFront.data(), colorFront.size());
-        std::string colorBack{std::format(ActionTable::string_trueColorBGMod, static_cast<int>(RGBBack_.R_), static_cast<int>(RGBBack_.G_), static_cast<int>(RGBBack_.B_))};
-        write(STDOUT_FILENO, colorBack.data(), colorBack.size());
-        break;
-    }
-    default:
-    
-        break;
+    const std::string output = GetColorString();
+    std::size_t offset = 0;
+    while (offset < output.size()) {
+        const auto n = ::write(STDOUT_FILENO, output.data() + offset, output.size() - offset);
+        if (n > 0) offset += static_cast<std::size_t>(n);
+        else if (n < 0 && errno == EINTR) continue;
+        else throw std::runtime_error("Colorator: write failed");
     }
 }
 
 std::string Colorator::GetColorString() const {
-    std::string result;
-    
-    switch (ColorMod_) {
-    case TUIcolorModAvalible::_16Colors: {
-        std::string colorFront{std::format(ActionTable::string_16ColorFGMod, 
-            static_cast<int>(transfor16ColorMod(RGBFront_)))};
-        std::string colorBack{std::format(ActionTable::string_16ColorBGMod, 
-            static_cast<int>(transfor16ColorMod(RGBBack_)))};
-        result = colorFront + colorBack;
-        break;
+    if (ColorMod_ == TUIcolorModAvalible::_trueColor) {
+        return std::format("\x1b[38;2;{};{};{}m\x1b[48;2;{};{};{}m",
+            RGBFront_.R_, RGBFront_.G_, RGBFront_.B_, RGBBack_.R_, RGBBack_.G_, RGBBack_.B_);
     }
-
-    case TUIcolorModAvalible::_256Colors: { // not supported yet 16 color mod logic
-        std::string colorFront{std::format(ActionTable::string_16ColorFGMod, 
-            static_cast<int>(transfor16ColorMod(RGBFront_)))};
-        std::string colorBack{std::format(ActionTable::string_16ColorBGMod, 
-            static_cast<int>(transfor16ColorMod(RGBBack_)))};
-        result = colorFront + colorBack;
-        break;
-    }
-
-    case TUIcolorModAvalible::_trueColor: {
-        std::string colorFront{std::format(ActionTable::string_trueColorFGMod, 
-            static_cast<int>(RGBFront_.R_), 
-            static_cast<int>(RGBFront_.G_), 
-            static_cast<int>(RGBFront_.B_))};
-        std::string colorBack{std::format(ActionTable::string_trueColorBGMod, 
-            static_cast<int>(RGBBack_.R_), 
-            static_cast<int>(RGBBack_.G_), 
-            static_cast<int>(RGBBack_.B_))};
-        result = colorFront + colorBack;
-        break;
-    }
-    
-    default:
-        break;
-    }
-    
-    return result;
+    // The 256-color mode still intentionally uses the documented 16-color fallback.
+    return ansi16(RGBFront_, false) + ansi16(RGBBack_, true);
 }
 
-} // namespace
+} // namespace TUI

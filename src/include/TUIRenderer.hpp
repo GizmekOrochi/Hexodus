@@ -28,6 +28,7 @@ enum class PixelDrawingMode {
 
 class TUIRenderer {
 private:
+    friend struct RendererTestAccess;
     struct EncodedCell {
         std::string_view glyph{};
         RGBPanel foreground{};
@@ -113,12 +114,12 @@ private:
 
     [[nodiscard]] static TerminalMode detectTerminalMode() noexcept;
 
-    [[nodiscard]] EncodedCell encodeQuad(
+    [[nodiscard]] static EncodedCell encodeQuad(
         const Pixel& topLeft,
         const Pixel& topRight,
         const Pixel& bottomLeft,
         const Pixel& bottomRight
-    ) const;
+    );
 
     [[nodiscard]] static std::string_view glyphForMask(
         std::uint8_t mask

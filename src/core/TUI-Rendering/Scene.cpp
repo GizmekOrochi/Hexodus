@@ -581,7 +581,8 @@ void Scene::renderTriangles( std::vector<TUI::Pixel>& colorBuffer, std::vector<f
                                     colorBuffer[bufferIndex] = alphaBlend(sourceColor, colorBuffer[bufferIndex]);
                                 }
 
-                                depthBuffer[bufferIndex] = depth;
+                                // Invisible fragments must not occlude later geometry.
+                                if (sourceColor.a != 0U) depthBuffer[bufferIndex] = depth;
                             }
                         }
                     }

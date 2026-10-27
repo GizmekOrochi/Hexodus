@@ -37,3 +37,23 @@ right - 2D scene
 
 # Exemple on truecolor with transparency
 ![Exemple on truecolor with transparency](resource/Screenshot%20from%202026-02-23%2011-31-41.png)
+
+# Tests automatiques
+
+Le framework de tests de NovaC est intégré : `make test`.
+Pour AddressSanitizer et UndefinedBehaviorSanitizer : `make test-sanitize`.
+Voir [tests/README.md](tests/README.md) et [CHANGELOG.md](CHANGELOG.md).
+
+## Compilation
+
+```sh
+make -j4             # bin/Hexodus
+make debug           # bin/Hexodus-debug
+make test            # toutes les suites (23 tests)
+make test-algebra    # algèbre uniquement (12 tests)
+make help
+```
+
+Les objets sont séparés dans build/{release,debug,test,algebra,sanitize}.
+Les headers sont suivis automatiquement. Après modification des flags sur la
+ligne de commande, lancer `make clean` avant de reconstruire.
