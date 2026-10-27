@@ -199,19 +199,11 @@ int main() {
                 continue;
             }
 
-            /*
-             * Dans un terminal, il n'existe pas de vrai événement
-             * "touche maintenue". La répétition vient du système.
-             * Le multiplicateur permet de rendre chaque événement visible.
-             */
-            constexpr float movementMultiplier{0.0f};
-            constexpr float keyboardRotationMultiplier{3.0f};
+            // evdev reports physical key positions, independently of the keyboard layout.
+            // KEY_W and KEY_A are labelled Z and Q on a standard French AZERTY keyboard.
+            constexpr float keyboardRotationMultiplier{1.0f};
             constexpr float mouseRotationMultiplier{0.35f};
-
-            const float movementDelta{
-                std::max(deltaTime, 1.0f / 60.0f) *
-                movementMultiplier
-            };
+            const float movementDelta{deltaTime};
 
             const float keyboardRotationDelta{
                 std::max(deltaTime, 1.0f / 60.0f) *
@@ -249,7 +241,7 @@ int main() {
                 camera.moveUp(movementDelta);
             }
 
-            if (input.down(TUI::Scancode::KeyC)) {
+            if (input.down(TUI::Scancode::LeftShift) || input.down(TUI::Scancode::RightShift)) {
                 camera.moveUp(-movementDelta);
             }
 
