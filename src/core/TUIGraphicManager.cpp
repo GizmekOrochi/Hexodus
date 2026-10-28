@@ -29,6 +29,9 @@ void appendCursorMove(std::string& output, int row, int column) {
 } // namespace
 
 TUIGraphicManager::TUIGraphicManager() {
+    const char* term = std::getenv("TERM");
+    if (!isatty(STDOUT_FILENO) || !term || !*term || std::string_view(term) == "dumb")
+        throw std::runtime_error("Hexodus requires an interactive ANSI terminal with TERM set");
     winsize ws{};
     if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1) {
         throw std::logic_error("Error couldn't init TUIGraphicManager");
@@ -37,6 +40,9 @@ TUIGraphicManager::TUIGraphicManager() {
     TUIheight_ = ws.ws_row;
     TUIWidth_ = ws.ws_col;
 
+    const auto termName = std::string_view(term);
+    linuxConsole_ = termName == "linux" || termName.starts_with("linux-");
+    synchronized_ = !linuxConsole_ && std::getenv("HEXODUS_SYNC") && std::string_view(std::getenv("HEXODUS_SYNC")) == "1";
     // Avoid repeated reallocations while building terminal frames.
     reserveCommand(static_cast<std::size_t>(TUIheight_) * static_cast<std::size_t>(TUIWidth_) * 24U);
 }
@@ -85,8 +91,8 @@ void TUIGraphicManager::TUIClearCursorLine() { TUIAction(ActionTable::string_Cle
 void TUIGraphicManager::TUIHideCursor() { TUIAction(ActionTable::string_HideCursor); }
 void TUIGraphicManager::TUIShowCursor() { TUIAction(ActionTable::string_ShowCursor); }
 void TUIGraphicManager::TUIResetColors() { TUIAction(ActionTable::string_ResetColors); }
-void TUIGraphicManager::TUIEnterAltScreen() { TUIAction(ActionTable::string_EnterAltScreen); }
-void TUIGraphicManager::TUILeaveAltScreen() { TUIAction(ActionTable::string_LeaveAltScreen); }
+void TUIGraphicManager::TUIEnterAltScreen() { if (!linuxConsole_) TUIAction(ActionTable::string_EnterAltScreen); }
+void TUIGraphicManager::TUILeaveAltScreen() { if (!linuxConsole_) TUIAction(ActionTable::string_LeaveAltScreen); }
 
 void TUIGraphicManager::TUISetColor(RGBPanel colorFront, RGBPanel colorBack) {
     colorator_.SetRGBColor(colorFront, colorBack);
@@ -129,11 +135,11 @@ void TUIGraphicManager::reserveCommand(std::size_t capacity) {
 
 void TUIGraphicManager::beginFrame() {
     command.clear();
-    command.append(ActionTable::string_BeginSynchronizedUpdate);
+    if (synchronized_) command.append(ActionTable::string_BeginSynchronizedUpdate);
 }
 
 void TUIGraphicManager::endFrame() {
-    command.append(ActionTable::string_EndSynchronizedUpdate);
+    if (synchronized_) command.append(ActionTable::string_EndSynchronizedUpdate);
 }
 
 void TUIGraphicManager::addCursorHome() {

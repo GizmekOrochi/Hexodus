@@ -23,6 +23,8 @@ private:
     Colorator colorator_{};
     termios original_termios{};
     std::string command{};
+    bool synchronized_{false};
+    bool linuxConsole_{false};
 
     void TUIAction(std::string_view stringAction);
 

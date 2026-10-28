@@ -53,7 +53,7 @@ $(eval $(call BUILD_PROFILE,sanitize,bin/tests-sanitize,$(CORE_SRC) $(TEST_SRC),
 
 clean:
 	rm -rf build
-	rm -f bin/Hexodus bin/Hexodus-debug bin/tests bin/testMassAlgebra bin/tests-sanitize
+	rm -f bin/Hexodus bin/Hexodus-debug bin/tests bin/testMassAlgebra bin/tests-sanitize bin/terminal-probe
 help:
 	@echo 'make [-jN]       Build release (bin/Hexodus)'
 	@echo 'make run         Build and run the application'
@@ -63,3 +63,9 @@ help:
 	@echo 'make test-sanitize Run all suites with ASan + UBSan'
 	@echo 'make clean       Remove build outputs'
 	@echo 'After changing command-line compiler flags, run make clean.'
+
+.PHONY: test-terminal
+bin/terminal-probe: $(release_OBJECTS) tools/terminal_probe.cpp Makefile
+	$(CXX) $(CPPFLAGS) $(COMMON_FLAGS) $(CXXFLAGS) tools/terminal_probe.cpp $(filter-out build/release/src/main.o,$(release_OBJECTS)) $(LDFLAGS) $(LDLIBS) -o $@
+test-terminal: bin/terminal-probe
+	python3 tests/terminal_pty.py

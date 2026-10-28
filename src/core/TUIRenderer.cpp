@@ -48,19 +48,17 @@ int TUIRenderer::verticalPixelsPerCell() const noexcept {
 }
 
 TerminalMode TUIRenderer::detectTerminalMode() noexcept {
-    const char* terminalEnvironment{std::getenv("TERM")};
-
-    if (terminalEnvironment == nullptr) {
-        return TerminalMode::UnicodeQuad;
-    }
-
-    const std::string_view terminal{terminalEnvironment};
-
-    if (terminal == "linux" || terminal.starts_with("linux-")) {
-        return TerminalMode::LinuxConsole;
-    }
-
-    return TerminalMode::UnicodeQuad;
+    const std::string_view term = std::getenv("TERM") ? std::getenv("TERM") : "";
+    if (term == "linux" || term.starts_with("linux-")) return TerminalMode::LinuxConsole;
+    const std::string_view mode = std::getenv("HEXODUS_GLYPHS") ? std::getenv("HEXODUS_GLYPHS") : "auto";
+    if (mode == "blocks") return TerminalMode::UnicodeQuad;
+    if (mode == "spaces") return TerminalMode::LinuxConsole;
+    const char* locale = std::getenv("LC_ALL");
+    if (!locale || !*locale) locale = std::getenv("LC_CTYPE");
+    if (!locale || !*locale) locale = std::getenv("LANG");
+    const std::string_view language = locale ? locale : "";
+    return language.find("UTF-8") != language.npos || language.find("utf8") != language.npos
+        ? TerminalMode::UnicodeQuad : TerminalMode::LinuxConsole;
 }
 
 int TUIRenderer::colorDistanceSquared(const Pixel& lhs, const Pixel& rhs) {
@@ -380,13 +378,10 @@ void TUIRenderer::drawFullFrame(int terminalWidth, int terminalHeight) {
     RGBPanel lastBackground{};
     bool hasLastColors{false};
 
-    for(const EncodedCell& cell : currentCells_) {
-        appendCell(
-            cell,
-            lastForeground,
-            lastBackground,
-            hasLastColors
-        );
+    for (int y = 0; y < terminalHeight; ++y) {
+        graphicManager_.addCursorMove(y+1, 1);
+        for (int x = 0; x < terminalWidth; ++x)
+            appendCell(currentCells_[std::size_t(y)*terminalWidth+x],lastForeground,lastBackground,hasLastColors);
     }
 }
 
@@ -579,6 +574,8 @@ void TUIRenderer::invalidate() {
 }
 
 void TUIRenderer::activate() {
+    if (active_) return;
+    active_ = true;
     graphicManager_.TUIEnterAltScreen();
     graphicManager_.TUIHideCursor();
     graphicManager_.TUIClear();
@@ -587,10 +584,16 @@ void TUIRenderer::activate() {
     invalidate();
 }
 
+TUIRenderer::~TUIRenderer() {
+    try { restore(); } catch (...) {}
+}
+
 void TUIRenderer::restore() {
+    if (!active_) return;
     graphicManager_.TUIResetColors();
     graphicManager_.TUIShowCursor();
     graphicManager_.TUILeaveAltScreen();
+    active_ = false;
 }
 
 } // namespace TUI

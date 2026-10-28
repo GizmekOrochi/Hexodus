@@ -68,6 +68,7 @@ private:
     int previousTerminalWidth_{};
     int previousTerminalHeight_{};
     bool forceFullRedraw_{true};
+    bool active_{false};
 
     // Above this ratio, rewriting the complete frame is generally cheaper
     // than emitting many cursor movements and short runs.
@@ -141,6 +142,9 @@ private:
 
 public:
     TUIRenderer();
+    ~TUIRenderer();
+    TUIRenderer(const TUIRenderer&) = delete;
+    TUIRenderer& operator=(const TUIRenderer&) = delete;
 
     void setActiveScene(Scene* scene);
     void InitScene(Scene* scene);

@@ -4,6 +4,8 @@
 #include <cstddef>
 #include <exception>
 #include <iostream>
+#include <cstdlib>
+#include <string>
 
 #include "include/TUIInput.hpp"
 #include "include/TUIRenderer.hpp"
@@ -161,6 +163,14 @@ int main() {
 
         scene.setBackground(TUI::Pixel{4, 6, 12, 255});
         scene.setBackfaceCulling(true);
+        // Both current encoders have equal horizontal/vertical sample counts.
+        // Configure physical cell width / height (e.g. 8x16 => 0.5).
+        if (const char* ratio = std::getenv("HEXODUS_CELL_ASPECT")) {
+            std::size_t consumed{};
+            const float value = std::stof(ratio, &consumed);
+            if (consumed != std::string(ratio).size()) throw std::invalid_argument("Invalid HEXODUS_CELL_ASPECT");
+            scene.setPixelAspectRatio(value);
+        }
 
         buildTestMap(scene);
 

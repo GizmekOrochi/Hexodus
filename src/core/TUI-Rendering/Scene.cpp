@@ -117,6 +117,12 @@ const Rendering::Camera& Scene::getCamera() const {
     return camera_;
 }
 
+void Scene::setPixelAspectRatio(float ratio) {
+    if (!std::isfinite(ratio) || ratio <= 0.0f)
+        throw std::invalid_argument("Pixel aspect ratio must be finite and positive");
+    pixelAspectRatio_ = ratio;
+}
+
 void Scene::setBackfaceCulling(bool enabled) {
     backfaceCulling_ = enabled;
 }
@@ -160,7 +166,7 @@ bool Scene::projectPoint(const Geometry::Vector& input, Geometry::Vector& output
     constexpr float verticalFovDegrees{70.0f};
     constexpr float verticalFovRadians{verticalFovDegrees * pi / 180.0f};
 
-    constexpr float terminalPixelRatio{0.5f};
+    const float terminalPixelRatio{pixelAspectRatio_};
 
     if (framebufferWidth <= 0 || framebufferHeight <= 0 ||
         input.getZ() < nearPlane || input.getZ() > farPlane) {
@@ -293,7 +299,7 @@ std::vector<Geometry::Triangle> Scene::projectTriangles(int framebufferWidth, in
     const float cosPitch{std::cos(-pitch)};
     const float sinPitch{std::sin(-pitch)};
 
-    constexpr float terminalPixelRatio{0.5f};
+    const float terminalPixelRatio{pixelAspectRatio_};
 
     const float verticalLimit{std::tan(verticalFovRadians * 0.5f)};
 
@@ -320,28 +326,6 @@ std::vector<Geometry::Triangle> Scene::projectTriangles(int framebufferWidth, in
         return static_cast<std::uint8_t>(std::clamp(value, 0.0f, 255.0f));
     };
 
-    const auto intersectNear = [&](const ClippingPoint& first, const ClippingPoint& second) {
-        const float deltaZ{second.pos.getZ() - first.pos.getZ()};
-
-        float t{0.0f};
-
-        if (std::abs(deltaZ) > 1e-6f) {
-            t = std::clamp((nearPlane - first.pos.getZ()) / deltaZ, 0.0f, 1.0f);
-        }
-
-        return ClippingPoint{
-            Geometry::Vector{
-                first.pos.getX() + (second.pos.getX() - first.pos.getX()) * t,
-                first.pos.getY() + (second.pos.getY() - first.pos.getY()) * t,
-                nearPlane,
-                1.0f},
-            TUI::Pixel{
-                interpolateChannel(first.color.r, second.color.r, t),
-                interpolateChannel(first.color.g, second.color.g, t),
-                interpolateChannel(first.color.b, second.color.b, t),
-                interpolateChannel(first.color.a, second.color.a, t)}};
-    };
-
 const auto project = [&](const Geometry::Vector& cameraPoint) {
     const float inverseZ{1.0f / cameraPoint.getZ()};
 
@@ -359,29 +343,37 @@ const auto project = [&](const Geometry::Vector& cameraPoint) {
             ClippingPoint{transformToCamera(triangleValue.getB()), triangleValue.getColorB()},
             ClippingPoint{transformToCamera(triangleValue.getC()), triangleValue.getColorC()}};
 
-        if (input[0].pos.getZ() > farPlane && input[1].pos.getZ() > farPlane && input[2].pos.getZ() > farPlane) {
-            continue;
-        }
-
-        std::array<ClippingPoint, 4> clipped{};
-        std::size_t clippedCount{0};
-
-        for (std::size_t index{0}; index < input.size(); ++index) {
-            const ClippingPoint& current{input[index]};
-            const ClippingPoint& previous{input[(index + input.size() - 1U) % input.size()]};
-
-            const bool currentInside{current.pos.getZ() >= nearPlane};
-            const bool previousInside{previous.pos.getZ() >= nearPlane};
-
-            if (!previousInside && currentInside) {
-                clipped[clippedCount++] = intersectNear(previous, current);
-                clipped[clippedCount++] = current;
-            } else if (previousInside && currentInside) {
-                clipped[clippedCount++] = current;
-            } else if (previousInside && !currentInside) {
-                clipped[clippedCount++] = intersectNear(previous, current);
+        // Sutherland-Hodgman clipping in camera space against all six planes.
+        std::vector<ClippingPoint> clipped(input.begin(), input.end());
+        for (int plane = 0; plane < 6 && !clipped.empty(); ++plane) {
+            const auto distance = [&](const Geometry::Vector& v) {
+                switch (plane) {
+                    case 0: return v.getZ() - nearPlane;
+                    case 1: return farPlane - v.getZ();
+                    case 2: return v.getX() + v.getZ() * horizontalLimit;
+                    case 3: return v.getZ() * horizontalLimit - v.getX();
+                    case 4: return v.getY() + v.getZ() * verticalLimit;
+                    default: return v.getZ() * verticalLimit - v.getY();
+                }
+            };
+            std::vector<ClippingPoint> output;
+            for (std::size_t i = 0; i < clipped.size(); ++i) {
+                const auto& a = clipped[(i + clipped.size() - 1) % clipped.size()];
+                const auto& b = clipped[i];
+                const float da = distance(a.pos), db = distance(b.pos);
+                if ((da >= 0) != (db >= 0)) {
+                    const float t = std::clamp(da / (da - db), 0.0f, 1.0f);
+                    output.push_back({{a.pos.getX() + t*(b.pos.getX()-a.pos.getX()),
+                        a.pos.getY() + t*(b.pos.getY()-a.pos.getY()),
+                        a.pos.getZ() + t*(b.pos.getZ()-a.pos.getZ()), 1.0f},
+                        {interpolateChannel(a.color.r,b.color.r,t),interpolateChannel(a.color.g,b.color.g,t),
+                         interpolateChannel(a.color.b,b.color.b,t),interpolateChannel(a.color.a,b.color.a,t)}});
+                }
+                if (db >= 0) output.push_back(b);
             }
+            clipped.swap(output);
         }
+        const std::size_t clippedCount = clipped.size();
 
         if (clippedCount < 3U) {
             continue;
@@ -447,13 +439,22 @@ void Scene::renderTriangles( std::vector<TUI::Pixel>& colorBuffer, std::vector<f
         return;
     }
 
-    const std::vector<Geometry::Triangle> projectedTriangles{projectTriangles(width, height)};
+    auto projectedTriangles = projectTriangles(width, height);
+    const auto opaque = [](const Geometry::Triangle& t) {
+        return t.getColorA().a == 255 && t.getColorB().a == 255 && t.getColorC().a == 255;
+    };
+    std::stable_sort(projectedTriangles.begin(), projectedTriangles.end(), [&](const auto& a, const auto& b) {
+        if (opaque(a) != opaque(b)) return opaque(a);
+        if (opaque(a)) return false;
+        return a.getA().getZ()+a.getB().getZ()+a.getC().getZ() >
+               b.getA().getZ()+b.getB().getZ()+b.getC().getZ();
+    });
 
     const float halfWidth{static_cast<float>(width) * 0.5f};
     const float halfHeight{static_cast<float>(height) * 0.5f};
 
     constexpr float denominatorEpsilon{1e-6f};
-    constexpr float edgeTolerance{-1e-5f};
+
 
     for (const Geometry::Triangle& triangleValue : projectedTriangles) {
         const Geometry::Vector a{triangleValue.getA()};
@@ -514,7 +515,20 @@ void Scene::renderTriangles( std::vector<TUI::Pixel>& colorBuffer, std::vector<f
         const TUI::Pixel colorC{triangleValue.getColorC()};
 
         const bool flatColor{samePixel(colorA, colorB) && samePixel(colorA, colorC)};
-        const bool flatOpaque{flatColor && colorA.a == 255U};
+        const bool isOpaque = opaque(triangleValue);
+        const bool flatOpaque{flatColor && isOpaque};
+        // Fixed-point coverage avoids epsilon overlap on shared edges.
+        struct Point { std::int64_t x, y; };
+        const auto point = [](float x, float y) { return Point{std::llround(x*256),std::llround(y*256)}; };
+        Point pa=point(ax,ay), pb=point(bx,by), pc=point(cx,cy);
+        const auto edge = [](Point a, Point b, Point p) { return (b.x-a.x)*(p.y-a.y)-(b.y-a.y)*(p.x-a.x); };
+        if (edge(pa,pb,pc)<0) std::swap(pb,pc);
+        if (edge(pa,pb,pc)==0) continue;
+        const auto accepts = [&](Point a, Point b, Point p) {
+            const auto e=edge(a,b,p);
+            const bool topLeft = b.y<a.y || (b.y==a.y && b.x>a.x);
+            return e>0 || (e==0 && topLeft);
+        };
 
         for (int y{minY}; y <= maxY; ++y) {
             float weightA{rowWeightA};
@@ -524,7 +538,8 @@ void Scene::renderTriangles( std::vector<TUI::Pixel>& colorBuffer, std::vector<f
             std::size_t bufferIndex{static_cast<std::size_t>(y) * static_cast<std::size_t>(width) + static_cast<std::size_t>(minX)};
 
             for (int x{minX}; x <= maxX; ++x, ++bufferIndex) {
-                if (weightA >= edgeTolerance && weightB >= edgeTolerance && weightC >= edgeTolerance) {
+                if (const Point sample{std::int64_t(x)*256+128,std::int64_t(y)*256+128};
+                    accepts(pa,pb,sample) && accepts(pb,pc,sample) && accepts(pc,pa,sample)) {
                     const float interpolatedInverseZ{inverseZA * weightA + inverseZB * weightB + inverseZC * weightC};
 
                     if (interpolatedInverseZ > 0.0f) {
@@ -582,7 +597,7 @@ void Scene::renderTriangles( std::vector<TUI::Pixel>& colorBuffer, std::vector<f
                                 }
 
                                 // Invisible fragments must not occlude later geometry.
-                                if (sourceColor.a != 0U) depthBuffer[bufferIndex] = depth;
+                                if (isOpaque) depthBuffer[bufferIndex] = depth;
                             }
                         }
                     }

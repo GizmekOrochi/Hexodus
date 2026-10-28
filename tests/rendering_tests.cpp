@@ -14,6 +14,7 @@ struct RendererTestAccess {
 };
 }
 struct SceneTestAccess {
+    static auto project(Scene& s) { s.getCamera().setPosition({0,0,0,1.0f}); return s.projectTriangles(16,16); }
     static void render(Scene& s, std::vector<TUI::Pixel>& c, std::vector<float>& d) {
         s.getCamera().setPosition({0,0,0,1.0f});
         s.renderTriangles(c,d,16,16);
@@ -122,4 +123,57 @@ TEST(Encoding, AlphaDoesNotChangeEncoding) {
 TEST(Encoding, RoundedCentroid) {
     const auto cell=TUI::RendererTestAccess::encode({Pixel{0,0,0,255},Pixel{1,1,1,255},Pixel{254,254,254,255},Pixel{255,255,255,255}});
     CHECK_EQ(cell.foreground.R_,1); CHECK_EQ(cell.background.R_,255);
+}
+TEST(Transparency, LayerOrderAndOpaqueDepth) {
+    for(bool reverse:{false,true}) {
+        Scene s({0,0},{100,100});
+        const auto near=triangle(2,{255,0,0,128}), far=triangle(3,{0,255,0,128});
+        s.addTriangle(reverse?near:far);s.addTriangle(reverse?far:near);
+        s.addTriangle(triangle(4,{0,0,255,255}));
+        Frame f;SceneTestAccess::render(s,f.color,f.depth);
+        CHECK_NEAR(f.color[136].r,128,1);CHECK_NEAR(f.color[136].g,63,1);
+        CHECK_NEAR(f.color[136].b,63,1);CHECK_NEAR(f.depth[136],4,0.001);
+    }
+}
+TEST(Transparency, BehindOpaqueIsHidden) {
+    Scene s({0,0},{100,100});s.addTriangle(triangle(4,{255,0,0,128}));s.addTriangle(triangle(2,{0,255,0,255}));
+    Frame f;SceneTestAccess::render(s,f.color,f.depth);CHECK_EQ(f.color[136].g,255);CHECK_EQ(f.color[136].r,0);
+}
+TEST(Coverage, SharedDiagonalBlendsExactlyOnce) {
+    for(bool reverse:{false,true}) {
+        Scene s({0,0},{100,100});const Pixel p{255,0,0,128};
+        Geometry::Vector a{-20,-20,2,1.0f},b{20,-20,2,1.0f},c{20,20,2,1.0f},d{-20,20,2,1.0f};
+        s.addTriangle(reverse?Geometry::Triangle{c,b,a,p,p,p}:Geometry::Triangle{a,b,c,p,p,p});
+        s.addTriangle(reverse?Geometry::Triangle{d,c,a,p,p,p}:Geometry::Triangle{a,c,d,p,p,p});
+        Frame f;SceneTestAccess::render(s,f.color,f.depth);
+        for(const auto pixel:f.color) CHECK_EQ(pixel.r,128);
+        for(float depth:f.depth)CHECK(std::isinf(depth));
+    }
+}
+TEST(Clipping, AllProjectedVerticesWithinFrustum) {
+    Scene s({0,0},{100,100});const Pixel p{255,255,255,255};
+    s.addTriangle({{-10000,-10000,0.5f,1.0f},{10000,-10000,3000,1.0f},{0,10000,1000,1.0f},p,p,p});
+    const auto triangles=SceneTestAccess::project(s);CHECK(!triangles.empty());
+    for(const auto& t:triangles)for(const auto& v:{t.getA(),t.getB(),t.getC()}) {
+        CHECK(v.getZ()>=0.999f);CHECK(v.getZ()<=2000.001f);
+        CHECK(std::abs(v.getX())<=8.001f);CHECK(std::abs(v.getY())<=8.001f);
+    }
+}
+TEST(Projection, ConfigurableAspectAndValidation) {
+    Scene s({0,0},{100,100});s.addTriangle(triangle(100,{255,0,0,255}));
+    auto before=SceneTestAccess::project(s);s.setPixelAspectRatio(1);auto after=SceneTestAccess::project(s);
+    CHECK_NEAR(after[0].getA().getX()*2,before[0].getA().getX(),0.001);
+    for(float value:{0.0f,-1.0f,std::numeric_limits<float>::infinity(),std::numeric_limits<float>::quiet_NaN()}) {
+        bool threw=false;try{s.setPixelAspectRatio(value);}catch(const std::invalid_argument&){threw=true;}CHECK(threw);
+    }
+}
+TEST(Color, Palette256CubeAndGray) {
+    Environment env("xterm-256color",nullptr);
+    TUI::Colorator c;c.SetRGBColor({255,0,0},{128,128,128});
+    CHECK_EQ(c.GetColorString(),std::string("\x1b[38;5;196m\x1b[48;5;244m"));
+}
+TEST(Color, LinuxIgnoresInheritedTruecolor) {
+    Environment env("linux","truecolor");
+    TUI::Colorator c;c.SetRGBColor({255,0,0},{0,0,255});
+    CHECK_EQ(c.GetColorString(),std::string("\x1b[91m\x1b[104m"));
 }

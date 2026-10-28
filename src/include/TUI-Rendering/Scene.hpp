@@ -31,6 +31,7 @@ private:
 
     Rendering::Camera camera_;
     bool backfaceCulling_;
+    float pixelAspectRatio_{0.5f};
 
     Geometry::Vector worldToCamera(const Geometry::Vector& position) const;
     bool projectPoint(const Geometry::Vector& input, Geometry::Vector& output, int framebufferWidth, int framebufferHeight) const;
@@ -78,6 +79,9 @@ public:
     Rendering::Camera& getCamera();
     const Rendering::Camera& getCamera() const;
 
+    // Physical width / height of one framebuffer sample.
+    void setPixelAspectRatio(float ratio);
+    float pixelAspectRatio() const { return pixelAspectRatio_; }
     void setBackfaceCulling(bool enabled);
     void toggleBackfaceCulling();
     bool backfaceCullingEnabled() const;

@@ -64,3 +64,38 @@ Clavier AZERTY : Z avancer, S reculer, Q gauche, D droite, Espace monter,
 Maj gauche ou droite descendre. Souris ou flèches pour regarder ; Échap quitte.
 Les touches de déplacement utilisent les positions physiques evdev : sur QWERTY,
 les mêmes positions correspondent à W/A/S/D. Un accès au clavier evdev est requis.
+
+## Proportions du terminal
+
+`HEXODUS_CELL_ASPECT=0.5 ./bin/Hexodus` configure largeur/hauteur physique
+d'une cellule (8 × 16 pixels : 0.5 ; 10 × 16 : 0.625). Valeur par défaut : 0.5.
+Aucune détection automatique. Pour la bibliothèque : `scene.setPixelAspectRatio(ratio)`
+configure le rapport physique d'un échantillon du framebuffer. Les encodeurs actuels
+1×1 et 2×2 conservent le rapport de cellule. Les valeurs non positives ou non finies sont rejetées.
+
+Le rendu dessine les triangles opaques avant les transparents, triés selon la profondeur
+moyenne en espace caméra. Les transparents testent la profondeur opaque sans l'écrire.
+Les surfaces transparentes qui se traversent, les cycles de recouvrement et les égalités
+de profondeur ne sont pas résolus par ce tri approximatif.
+
+## Sorties terminal
+
+La sortie doit être un terminal interactif ANSI avec TERM défini (pas `dumb`).
+La console Linux utilise des espaces colorés et 16 couleurs, sans écran alternatif.
+Les autres terminaux utilisent les quadrants si la locale indique UTF-8, sinon des espaces.
+La détection est une heuristique d'environnement, pas une interrogation terminfo.
+
+- `HEXODUS_COLORS=auto|16|256|truecolor` : choisir les couleurs (Linux reste en 16).
+- `HEXODUS_GLYPHS=auto|spaces|blocks` : choisir les glyphes (Linux reste en espaces).
+- `HEXODUS_SYNC=1` : activer les mises à jour synchronisées uniquement si le terminal les prend en charge ; désactivées par défaut et sur Linux.
+
+Le mode 256 couleurs utilise le cube et les gris standards, sans supposer les
+valeurs des 16 couleurs personnalisables. Leur apparence reste dépendante du terminal.
+Le redimensionnement est relu à chaque image ; une taille nulle suspend le dessin.
+Le rendu complet positionne chaque ligne explicitement. Le destructeur restaure
+le curseur et les attributs à la sortie normale ou lors du déroulement d'une exception.
+Aucune garantie de restauration après SIGKILL ou un crash fatal. Sur la console Linux,
+le contenu effacé ne peut pas être récupéré par un écran alternatif.
+
+`make test-terminal` : tests de séquences et redimensionnement en pseudo-terminal.
+Ils ne simulent ni les polices, ni l'affichage réel, ni les périphériques evdev.
