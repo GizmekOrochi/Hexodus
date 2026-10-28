@@ -14,7 +14,9 @@ SANITIZE_FLAGS ?= -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer
 SRC := $(sort $(shell find src -name '*.cpp'))
 CORE_SRC := $(filter-out src/main.cpp,$(SRC))
 TEST_SRC := $(sort $(shell find tests -name '*.cpp'))
-ALGEBRA_SRC := tests/main.cpp tests/testMassAlgebra.cpp src/core/TUI-Rendering/Geometry/object/Matrix.cpp src/core/TUI-Rendering/Geometry/object/Vector.cpp
+ALGEBRA_SRC := tests/main.cpp tests/testMassAlgebra.cpp \
+ src/core/TUI-Rendering/Geometry/object/Matrix.cpp \
+ src/core/TUI-Rendering/Geometry/object/Vector.cpp
 
 .PHONY: all run debug test test-algebra testMassAlgebra test-sanitize clean help
 all: bin/Hexodus
@@ -53,11 +55,11 @@ clean:
 	rm -rf build
 	rm -f bin/Hexodus bin/Hexodus-debug bin/tests bin/testMassAlgebra bin/tests-sanitize
 help:
-	@echo 'make [-jN] Build release (bin/Hexodus)'
-	@echo 'make run Build and run the application'
-	@echo 'make debug Build debug (bin/Hexodus-debug)'
-	@echo 'make test Build and run all test suites'
+	@echo 'make [-jN]       Build release (bin/Hexodus)'
+	@echo 'make run         Build and run the application'
+	@echo 'make debug       Build debug (bin/Hexodus-debug)'
+	@echo 'make test        Build and run all test suites'
 	@echo 'make test-algebra Run only the algebra suites'
 	@echo 'make test-sanitize Run all suites with ASan + UBSan'
-	@echo 'make clean Remove build outputs'
+	@echo 'make clean       Remove build outputs'
 	@echo 'After changing command-line compiler flags, run make clean.'

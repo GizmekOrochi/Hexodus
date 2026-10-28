@@ -131,57 +131,48 @@ std::string_view TUIRenderer::glyphForMask(std::uint8_t mask) {
 }
 
 TUIRenderer::EncodedCell TUIRenderer::encodeQuad(const Pixel& topLeft, const Pixel& topRight, const Pixel& bottomLeft, const Pixel& bottomRight) {
-    const auto samePixel = [](const Pixel& lhs, const Pixel& rhs) noexcept {
-        return lhs.r == rhs.r && lhs.g == rhs.g && lhs.b == rhs.b && lhs.a == rhs.a;
-    };
-
-    if (samePixel(topLeft, topRight) && samePixel(topLeft, bottomLeft) && samePixel(topLeft, bottomRight)) {
-        const RGBPanel color{toRGBPanel(topLeft)};
-
-        return EncodedCell{QuadBlock::empty, color, color};
-    }
-
     const std::array<Pixel, 4> pixels{topLeft, topRight, bottomLeft, bottomRight};
-
-    std::size_t backgroundIndex{};
-    std::size_t foregroundIndex{};
-    int greatestDistance{-1};
-
-    for(std::size_t first{}; first < pixels.size(); ++first) {
-        for(std::size_t second{first + 1}; second < pixels.size(); ++second) {
-            const int distance{colorDistanceSquared(pixels[first], pixels[second])};
-
-            if (distance > greatestDistance) {
-                greatestDistance = distance;
-                backgroundIndex = first;
-                foregroundIndex = second;
-            }
+    // Each partition and its complement describe the same image. Keep pixel 3
+    // in the background: masks 0..7 cover all eight distinct partitions.
+    // Minimize squared RGB error; alpha has already been composited upstream.
+    int bestError{4 * 3 * 255 * 255 + 1};
+    EncodedCell best{};
+    for (unsigned mask{}; mask < 8; ++mask) {
+        int sums[2][3]{};
+        int counts[2]{};
+        for (unsigned i{}; i < 4; ++i) {
+            const unsigned group{(mask >> i) & 1U};
+            ++counts[group];
+            sums[group][0] += pixels[i].r;
+            sums[group][1] += pixels[i].g;
+            sums[group][2] += pixels[i].b;
+        }
+        RGBPanel colors[2]{};
+        for (unsigned group{}; group < 2; ++group) {
+            if (counts[group] == 0) continue;
+            const int n{counts[group]};
+            // Rounded centroid is optimal for integer RGB channels.
+            colors[group] = RGBPanel{
+                static_cast<unsigned char>((sums[group][0] + n / 2) / n),
+                static_cast<unsigned char>((sums[group][1] + n / 2) / n),
+                static_cast<unsigned char>((sums[group][2] + n / 2) / n)};
+        }
+        if (counts[1] == 0) colors[1] = colors[0];
+        int error{};
+        for (unsigned i{}; i < 4; ++i) {
+            const auto color{colors[(mask >> i) & 1U]};
+            const int dr{int(pixels[i].r) - color.R_};
+            const int dg{int(pixels[i].g) - color.G_};
+            const int db{int(pixels[i].b) - color.B_};
+            error += dr * dr + dg * dg + db * db;
+        }
+        // Strict comparison makes ties deterministic and prefers solid cells.
+        if (error < bestError) {
+            bestError = error;
+            best = EncodedCell{glyphForMask(mask), colors[1], colors[0]};
         }
     }
-
-    const Pixel background{pixels[backgroundIndex]};
-    const Pixel foreground{pixels[foregroundIndex]};
-
-    if (greatestDistance <= 0) {
-        return EncodedCell{QuadBlock::empty,toRGBPanel(background), toRGBPanel(background)};
-    }
-
-    std::uint8_t mask{};
-
-    for(std::size_t index{}; index < pixels.size(); ++index) {
-        const int distanceToBackground{colorDistanceSquared(pixels[index], background)};
-        const int distanceToForeground{colorDistanceSquared(pixels[index], foreground)};
-
-        if (distanceToForeground < distanceToBackground) {
-            mask |= static_cast<std::uint8_t>(1U << index);
-        }
-    }
-
-    if (mask == 0x0F) {
-        return EncodedCell{QuadBlock::empty, toRGBPanel(background), toRGBPanel(foreground)};
-    }
-
-    return EncodedCell{glyphForMask(mask), toRGBPanel(foreground), toRGBPanel(background)};
+    return best;
 }
 
 void TUIRenderer::renderScenes() {

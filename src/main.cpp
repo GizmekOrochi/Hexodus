@@ -201,7 +201,7 @@ int main() {
 
             // evdev reports physical key positions, independently of the keyboard layout.
             // KEY_W and KEY_A are labelled Z and Q on a standard French AZERTY keyboard.
-            constexpr float keyboardRotationMultiplier{1.0f};
+            constexpr float keyboardRotationMultiplier{3.0f};
             constexpr float mouseRotationMultiplier{0.35f};
             const float movementDelta{deltaTime};
 

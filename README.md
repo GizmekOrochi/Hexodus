@@ -57,3 +57,10 @@ make help
 Les objets sont séparés dans build/{release,debug,test,algebra,sanitize}.
 Les headers sont suivis automatiquement. Après modification des flags sur la
 ligne de commande, lancer `make clean` avant de reconstruire.
+
+## Déplacements dans la démo
+
+Clavier AZERTY : Z avancer, S reculer, Q gauche, D droite, Espace monter,
+Maj gauche ou droite descendre. Souris ou flèches pour regarder ; Échap quitte.
+Les touches de déplacement utilisent les positions physiques evdev : sur QWERTY,
+les mêmes positions correspondent à W/A/S/D. Un accès au clavier evdev est requis.
